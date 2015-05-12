@@ -110,7 +110,6 @@ public class NashornController extends SpringActionController
         {
             HttpServletRequest req = getViewContext().getRequest();
 
-
             String controllerName = getViewContext().getActionURL().getController();
             String scriptName = null;
             boolean useSessionEngine = true;
@@ -128,6 +127,7 @@ public class NashornController extends SpringActionController
             Pair<ScriptEngine,ScriptContext> nashorn = getNashorn(useSessionEngine);
 
             // evaluate controller script
+            // TODO : ResourceLoader and cache
             if (null != scriptName)
             {
                 Module m = ModuleLoader.getInstance().getModule("nashorn");

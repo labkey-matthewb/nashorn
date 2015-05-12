@@ -1,54 +1,60 @@
-
-(function(){
-
-	var beginAction =
+class Action
+{
+	validate(json,errors) : void {}
+    public execute(json,errors) : Object
+    {
+        return {success:true};
+    }
+    public execute_POST(json,errors) : Object
 	{
-	    validate:function(json,errors)                     // optional
-	    {
-	    },
-
-	    execute:function(json,errors)                      // required (or execute_POST)
-	    {
-	    	var name = json.name || json.Name;
-	    	if (name)
-	        	return {message:'Hello ' + name};
-	        else
-	        	return {message:'Hello World'};
-	    },
-
-	    execute_POST:function(json,errors)                 // optional
-	    {
-	        var ret = this.execute(json,errors);
-	        ret['method'] = 'POST';
-	        return ret;
-	    },
-
-	    execute_GET:function(json,errors)                  // optional
-	    {
-	        var ret = this.execute(json,errors);
-	        ret['method'] = 'GET';
-	        return ret;
-	    },
-
-	    methodsAllowed:['POST','GET'],          // default = ['POST']
-
-	    requiresPermission: "ReadPermission"    // required
-	};
+		return this.execute(json,errors);
+	}
+    public execute_GET(json,errors) : Object
+	{
+		return this.execute(json,errors);
+	}
+	methodsAllowed: string[];
+	requiresPermission : string;
+}
 
 
-        var secondAction = 
-        {
-	    execute:function(json,errors)
-	    {
-		return {success:true, answer:2};
-	    },
-	    requiresPermission:"ReadPermission"
+class BeginAction extends Action
+{
+	execute(json,errors)
+	{
+        console.log("name="+json.name);
+        var ret:Object = {success:true};
+		if (json.name)
+			ret['message'] = 'Hello ' + json.name;
+		else
+            ret['message'] = 'Hello World';
+        ret['method='] = 'GET';
+        ret['url'] = request.url.toString();
+        ret['user-agent'] = request.headers['user-agent'];
+        ret['contextPath'] = request.contextPath;
 	}
 
-	return actions =
-	{
-	    begin: beginAction,
-	    second: secondAction
-	};
+	methodsAllowed:string[] = ['POST','GET'];
 
-})();
+	requiresPermission:string = "ReadPermission";
+}
+
+
+class SecondAction extends Action
+{
+    public execute(json,errors):Object
+    {
+        return {success:true, answer:42};
+    }
+
+    methodsAllowed:string[] = ['GET'];
+
+    requiresPermission:string = "ReadPermission";
+}
+
+
+var actions:Object =
+{
+	begin: new BeginAction(),
+	second: new SecondAction()
+};
