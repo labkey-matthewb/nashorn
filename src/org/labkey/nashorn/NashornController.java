@@ -19,6 +19,7 @@ package org.labkey.nashorn;
 import jdk.nashorn.api.scripting.NashornScriptEngineFactory;
 import jdk.nashorn.api.scripting.ScriptObjectMirror;
 import jdk.nashorn.internal.runtime.ScriptObject;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -30,6 +31,9 @@ import org.labkey.api.action.Marshal;
 import org.labkey.api.action.Marshaller;
 import org.labkey.api.action.NullSafeBindException;
 import org.labkey.api.action.SpringActionController;
+import org.labkey.api.module.Module;
+import org.labkey.api.module.ModuleLoader;
+import org.labkey.api.reader.UTF8Reader;
 import org.labkey.api.security.RequiresNoPermission;
 import org.labkey.api.security.RequiresSiteAdmin;
 import org.labkey.api.settings.AppProps;
@@ -52,6 +56,8 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 import javax.servlet.http.HttpServletRequest;
+import java.io.InputStream;
+import java.io.Reader;
 import java.util.concurrent.Callable;
 
 public class NashornController extends SpringActionController
@@ -103,14 +109,35 @@ public class NashornController extends SpringActionController
         public Object execute(JSONObject json, BindException errors) throws Exception
         {
             HttpServletRequest req = getViewContext().getRequest();
+
+
+            String controllerName = getViewContext().getActionURL().getController();
+            String scriptName = null;
+            boolean useSessionEngine = true;
+            if (controllerName.contains("-"))
+            {
+                scriptName = controllerName.substring(controllerName.indexOf("-")+1);
+                useSessionEngine = false;
+            }
             String actionName = getViewContext().getActionURL().getAction();
             if (StringUtils.equalsIgnoreCase("action",actionName) && null != req.getParameter("action"))
                 actionName = StringUtils.stripToEmpty(req.getParameter("action"));
             String method=req.getMethod();
 
-            Pair<ScriptEngine,ScriptContext> nashorn = getNashorn(true);
-            Bindings bindings = nashorn.second.getBindings(ScriptContext.ENGINE_SCOPE);
 
+            Pair<ScriptEngine,ScriptContext> nashorn = getNashorn(useSessionEngine);
+
+            // evaluate controller script
+            if (null != scriptName)
+            {
+                Module m = ModuleLoader.getInstance().getModule("nashorn");
+                try (InputStream is = m.getResourceStream("controllers/" + scriptName + ".js"))
+                {
+                    nashorn.first.eval(new UTF8Reader(is), nashorn.second);
+                }
+            }
+
+            Bindings bindings = nashorn.second.getBindings(ScriptContext.ENGINE_SCOPE);
             if (!bindings.containsKey("actions"))
             {
                 throw new NotFoundException("exports variable 'actions' not found");

@@ -20,8 +20,10 @@ import org.jetbrains.annotations.NotNull;
 import org.labkey.api.data.Container;
 import org.labkey.api.module.DefaultModule;
 import org.labkey.api.module.ModuleContext;
+import org.labkey.api.resource.Resource;
 import org.labkey.api.view.WebPartFactory;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
@@ -56,7 +58,7 @@ public class NashornModule extends DefaultModule
     @Override
     protected void init()
     {
-        addController("nashorn", NashornController.class);
+        addNashornControllers();
     }
 
     @Override
@@ -76,5 +78,25 @@ public class NashornModule extends DefaultModule
     public Set<String> getSchemaNames()
     {
         return Collections.emptySet();
+    }
+
+
+    private void addNashornControllers()
+    {
+        // TODO iterate over all modules
+        Resource dir = getModuleResource("controllers");
+        if (!dir.isCollection())
+            return;
+
+        ArrayList<String> aliases = new ArrayList<>();
+        for (Resource file : dir.list())
+        {
+            if (!file.getName().endsWith(".js"))
+                continue;
+            String controllerName = file.getName().substring(0,file.getName().length()-3);
+            aliases.add("nashorn-" + controllerName);
+        }
+
+        addController("nashorn",NashornController.class,aliases.toArray(new String[aliases.size()]));
     }
 }
