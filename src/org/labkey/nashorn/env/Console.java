@@ -25,7 +25,7 @@ public class Console
     }
     public void log(String msg)
     {
-        _log.debug(msg);
+        _log.info(msg);
     }
     public void warn(String msg)
     {

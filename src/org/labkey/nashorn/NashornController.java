@@ -57,7 +57,6 @@ import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 import javax.servlet.http.HttpServletRequest;
 import java.io.InputStream;
-import java.io.Reader;
 import java.util.concurrent.Callable;
 
 public class NashornController extends SpringActionController
@@ -148,6 +147,8 @@ public class NashornController extends SpringActionController
             if (null == actions || !actions.containsKey(actionName))
                 throw new NotFoundException("action not found: nashorn." + actionName);
 
+            Request envRequest = new Request(getViewContext().getRequest(), getViewContext().getActionURL());
+
             ScriptObjectMirror action = (ScriptObjectMirror)actions.get(actionName);
 
             String validateFn = null;
@@ -159,12 +160,12 @@ public class NashornController extends SpringActionController
                 executeFn = "execute_" + method;
 
             if (null != validateFn)
-                action.callMember(validateFn,json,errors);
+                action.callMember(validateFn,envRequest,json,errors);
 
             if (errors.hasErrors())
                 return null;
 
-            Object result = action.callMember(executeFn,json,errors);
+            Object result = action.callMember(executeFn,envRequest,json,errors);
 
             if (errors.hasErrors())
                 return null;
@@ -302,9 +303,6 @@ public class NashornController extends SpringActionController
 
         Bindings engineScope = engine.getBindings(ScriptContext.ENGINE_SCOPE);
         engineScope.put("LABKEY", new org.labkey.nashorn.env.LABKEY(getViewContext()));
-        engineScope.put("user", new org.labkey.nashorn.env.User(getViewContext().getUser()));
-        engineScope.put("container", new org.labkey.nashorn.env.Container(getViewContext().getContainer()));
-        engineScope.put("request", new Request(getViewContext().getRequest(), getViewContext().getActionURL()));
 
         Bindings globalScope = engine.getBindings(ScriptContext.GLOBAL_SCOPE);
         // null==engine.getBindings(ScriptContext.GLOBAL_SCOPE), because of --global-per-engine
