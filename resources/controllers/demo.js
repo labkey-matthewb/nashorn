@@ -11,11 +11,6 @@ var Permissions = {
     INSERT: "org.labkey.api.security.permissions.InsertPermission",
     ADMIN: "org.labkey.api.security.permissions.AdminPermission"
 };
-var ValidationError = (function () {
-    function ValidationError() {
-    }
-    return ValidationError;
-})();
 var Action = (function () {
     function Action() {
     }
@@ -61,6 +56,12 @@ var SecondAction = (function (_super) {
         this.methodsAllowed = ['GET'];
         this.requiresPermission = Permissions.READ;
     }
+    SecondAction.prototype.validate = function (request, json, errors) {
+        console.log("json.name=" + json.name);
+        if (json.name == 'Fred') {
+            errors.reject({ message: 'not that guy' });
+        }
+    };
     SecondAction.prototype.execute = function (request, json, errors) {
         return { success: true, answer: 42 };
     };
@@ -71,4 +72,3 @@ var actions = {
     begin: new BeginAction(),
     second: new SecondAction()
 };
-//# sourceMappingURL=demo.js.map

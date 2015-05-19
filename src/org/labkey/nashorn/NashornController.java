@@ -44,6 +44,7 @@ import org.labkey.api.view.NavTree;
 import org.labkey.api.view.NotFoundException;
 import org.labkey.api.view.UnauthorizedException;
 import org.labkey.nashorn.env.Console;
+import org.labkey.nashorn.env.Errors;
 import org.labkey.nashorn.env.Request;
 import org.springframework.beans.PropertyValue;
 import org.springframework.validation.BindException;
@@ -160,12 +161,12 @@ public class NashornController extends SpringActionController
                 executeFn = "execute_" + method;
 
             if (null != validateFn)
-                action.callMember(validateFn,envRequest,json,errors);
+                action.callMember(validateFn,envRequest,json,new Errors(errors));
 
             if (errors.hasErrors())
                 return null;
 
-            Object result = action.callMember(executeFn,envRequest,json,errors);
+            Object result = action.callMember(executeFn,envRequest,json,new Errors(errors));
 
             if (errors.hasErrors())
                 return null;

@@ -1,20 +1,21 @@
-class Action
+var Permissions =
 {
-	public validate(request,json,errors) : void {}
-    public execute(request,json,errors) : Object
-    {
-        return {success:true};
-    }
-    public execute_POST(request,json,errors) : Object
-	{
-		return this.execute(request,json,errors);
-	}
-    public execute_GET(request,json,errors) : Object
-	{
-		return this.execute(request,json,errors);
-	}
-	methodsAllowed: string[];
-	requiresPermission : string;
+    READ:"org.labkey.api.security.permissions.ReadPermission",
+    DELETE:"org.labkey.api.security.permissions.DeletePermission",
+    UPDATE:"org.labkey.api.security.permissions.UpdatePermission",
+    INSERT:"org.labkey.api.security.permissions.InsertPermission",
+    ADMIN:"org.labkey.api.security.permissions.AdminPermission"
+};
+interface ValidationError
+{
+    message?:string;
+    field?:string;           // TODO: field does not work with org.springframework.validation.BindException, may need custom implementation of Errors
+    errorCode?:string;
+    arguments?:any[];
+}
+interface Errors
+{
+    reject(error:ValidationError):void;
 }
 interface Console
 {
@@ -45,6 +46,24 @@ interface User
     email:string;
     displayName:string;
 }
+class Action
+{
+    public validate(request:Request, json:any, errors:Errors) : void {}
+    public execute(request:Request, json:any, errors:Errors) : Object
+    {
+        return {success:true};
+    }
+    public execute_POST(request:Request, json:any, errors:Errors) : Object
+    {
+        return this.execute(request,json,errors);
+    }
+    public execute_GET(request:Request, json:any, errors:Errors) : Object
+    {
+        return this.execute(request,json,errors);
+    }
+    methodsAllowed: string[];
+    requiresPermission : string;
+}
 interface LabKey
 {
     user:User;
@@ -52,6 +71,7 @@ interface LabKey
 }
 
 declare var LABKEY:LabKey;
+declare var console:Console;
 
 
 
@@ -62,11 +82,9 @@ declare var LABKEY:LabKey;
 
 
 
-
-
 class BeginAction extends Action
 {
-	public execute(request:Request,json,errors) : Object
+	public execute(request:Request,json:any, errors:Errors) : Object
 	{
         console.log("name="+json.name);
         var name = json.name || LABKEY.user.displayName;
@@ -82,23 +100,33 @@ class BeginAction extends Action
 
 	methodsAllowed:string[] = ['POST','GET'];
 
-	requiresPermission:string = "ReadPermission";
+    requiresPermission:string = Permissions.READ;
 }
 
 
 class SecondAction extends Action
 {
-    public execute(request,json,errors):Object
+    public validate(request:Request, json:any, errors:Errors) : void
+    {
+        console.log("json.name=" + json.name);
+        if (json.name == 'Fred')
+        {
+            errors.reject({message:'not that guy'});
+        }
+    }
+    public execute(request:Request,json:any, errors:Errors) : Object
     {
         return {success:true, answer:42};
     }
 
     methodsAllowed:string[] = ['GET'];
 
-    requiresPermission:string = "ReadPermission";
+    requiresPermission:string = Permissions.READ;
 }
 
+
 // use export.actions instead?
+
 var actions:Object =
 {
 	begin: new BeginAction(),
