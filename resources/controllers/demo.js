@@ -1,3 +1,4 @@
+//@ sourceURL=optionalModules/nashorn/resources/controllers/demo.js
 var __extends = this.__extends || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
@@ -67,8 +68,10 @@ var SecondAction = (function (_super) {
     };
     return SecondAction;
 })(Action);
-// use export.actions instead?
+// CONSIDER: "tsc --module" and "export var actions"?
+// CONSIDER: advantages? disadvantages?
 var actions = {
     begin: new BeginAction(),
     second: new SecondAction()
 };
+//# sourceMappingURL=demo.js.map

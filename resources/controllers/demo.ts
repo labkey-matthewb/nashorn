@@ -1,3 +1,5 @@
+//@ sourceURL=optionalModules/nashorn/resources/controllers/demo.js
+
 var Permissions =
 {
     READ:"org.labkey.api.security.permissions.ReadPermission",
@@ -125,7 +127,8 @@ class SecondAction extends Action
 }
 
 
-// use export.actions instead?
+// CONSIDER: "tsc --module" and "export var actions"?
+// CONSIDER: advantages? disadvantages?
 
 var actions:Object =
 {
