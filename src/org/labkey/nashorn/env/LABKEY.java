@@ -27,8 +27,8 @@ public class LABKEY
     }
 
     // How do I return capital Query for this object rather than 'query'?
-    public Query getQuery()
+    public QueryService getQueryService()
     {
-        return new Query(_container._container,_user._user);
+        return new QueryService(_container._container,_user._user);
     }
 }

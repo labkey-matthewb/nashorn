@@ -33,7 +33,7 @@ import org.labkey.api.action.NullSafeBindException;
 import org.labkey.api.action.SpringActionController;
 import org.labkey.api.module.Module;
 import org.labkey.api.module.ModuleLoader;
-import org.labkey.api.reader.UTF8Reader;
+import org.labkey.api.reader.Readers;
 import org.labkey.api.security.RequiresNoPermission;
 import org.labkey.api.security.RequiresSiteAdmin;
 import org.labkey.api.settings.AppProps;
@@ -133,7 +133,7 @@ public class NashornController extends SpringActionController
                 Module m = ModuleLoader.getInstance().getModule("nashorn");
                 try (InputStream is = m.getResourceStream("controllers/" + scriptName + ".js"))
                 {
-                    nashorn.first.eval(new UTF8Reader(is), nashorn.second);
+                    nashorn.first.eval(Readers.getReader(is), nashorn.second);
                 }
             }
 

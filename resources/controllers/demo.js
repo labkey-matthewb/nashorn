@@ -68,10 +68,34 @@ var SecondAction = (function (_super) {
     };
     return SecondAction;
 })(Action);
+var QueryAction = (function (_super) {
+    __extends(QueryAction, _super);
+    function QueryAction() {
+        _super.apply(this, arguments);
+        this.methodsAllowed = ['GET'];
+        this.requiresPermission = Permissions.READ;
+    }
+    QueryAction.prototype.validate = function (request, json, errors) {
+    };
+    QueryAction.prototype.execute = function (request, json, errors) {
+        var rs = LABKEY.queryService.select({
+            "schemaName": "core",
+            "sql": "SELECT userId, email FROM core.Users"
+        });
+        // TODO Jackson treats nashorn array as a generic Object e.g. {"0":"zero", "1","one"} instead of ["zero","one"]
+        var arr = [];
+        while (rs.next()) {
+            arr.push({ "userid": rs.getNumber(1), "email": rs.getString(2) });
+        }
+        return { success: true, users: arr };
+    };
+    return QueryAction;
+})(Action);
 // CONSIDER: "tsc --module" and "export var actions"?
 // CONSIDER: advantages? disadvantages?
 var actions = {
     begin: new BeginAction(),
-    second: new SecondAction()
+    second: new SecondAction(),
+    query: new QueryAction()
 };
 //# sourceMappingURL=demo.js.map
