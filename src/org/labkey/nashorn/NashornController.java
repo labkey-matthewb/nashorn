@@ -63,15 +63,20 @@ import java.util.concurrent.Callable;
 public class NashornController extends SpringActionController
 {
     static final Logger _log = Logger.getLogger(NashornController.class);
+    final String resolvedName;
 
     private static final DefaultActionResolver _actionResolver = new DefaultActionResolver(NashornController.class)
     {
         @Override
         public Controller resolveActionName(Controller actionController, String name)
         {
-            Controller c = super.resolveActionName(actionController, name);
-            if (null != c)
-                return c;
+            NashornController me = (NashornController)actionController;
+            if (me.resolvedName.equals("nashorn"))
+            {
+                Controller c = super.resolveActionName(actionController, name);
+                if (null != c)
+                    return c;
+            }
             return super.resolveActionName(actionController, "action");
         }
     };
@@ -79,6 +84,14 @@ public class NashornController extends SpringActionController
     public NashornController()
     {
         setActionResolver(_actionResolver);
+        resolvedName = "nashorn";
+    }
+
+
+    public NashornController(String name)
+    {
+        setActionResolver(_actionResolver);
+        this.resolvedName = name;
     }
 
 
@@ -127,11 +140,10 @@ public class NashornController extends SpringActionController
             Pair<ScriptEngine,ScriptContext> nashorn = getNashorn(useSessionEngine);
 
             // evaluate controller script
-            // TODO : ResourceLoader and cache
-            if (null != scriptName)
+            NashornCacheHandler.ScriptWrapper w = NashornModule.getControllerScript((controllerName).toLowerCase());
+            if (null != w)
             {
-                Module m = ModuleLoader.getInstance().getModule("nashorn");
-                try (InputStream is = m.getResourceStream("controllers/" + scriptName + ".js"))
+                try (InputStream is = w.getInputStream())
                 {
                     nashorn.first.eval(Readers.getReader(is), nashorn.second);
                 }
