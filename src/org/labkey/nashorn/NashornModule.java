@@ -17,19 +17,30 @@
 package org.labkey.nashorn;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.labkey.api.data.Container;
 import org.labkey.api.module.DefaultModule;
+import org.labkey.api.module.Module;
 import org.labkey.api.module.ModuleContext;
-import org.labkey.api.resource.Resource;
+import org.labkey.api.module.ModuleLoader;
+import org.labkey.api.module.ModuleResourceCache;
+import org.labkey.api.module.ModuleResourceCaches;
+import org.labkey.api.module.ModuleResourceLoader;
+import org.labkey.api.util.Path;
 import org.labkey.api.view.WebPartFactory;
+import org.springframework.web.servlet.mvc.Controller;
 
-import java.util.ArrayList;
+import javax.servlet.http.HttpServletRequest;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 
 public class NashornModule extends DefaultModule
 {
+    public NashornModule()
+    {
+    }
+
     @Override
     public String getName()
     {
@@ -58,13 +69,17 @@ public class NashornModule extends DefaultModule
     @Override
     protected void init()
     {
-        addNashornControllers();
+        addController("nashorn", NashornController.class);
+        CONTROLLER_CACHE = ModuleResourceCaches.create(new Path("controllers"), "Javascript controllers", new NashornCacheHandler());
     }
+
 
     @Override
     public void doStartup(ModuleContext moduleContext)
     {
+        addControllerAliases();
     }
+
 
     @NotNull
     @Override
@@ -81,22 +96,38 @@ public class NashornModule extends DefaultModule
     }
 
 
-    private void addNashornControllers()
+    @NotNull
+    @Override
+    public Set<? extends ModuleResourceLoader> getResourceLoaders()
     {
-        // TODO iterate over all modules
-        Resource dir = getModuleResource("controllers");
-        if (!dir.isCollection())
-            return;
+        return Collections.singleton(new NashornResourceLoader());
+    }
 
-        ArrayList<String> aliases = new ArrayList<>();
-        for (Resource file : dir.list())
+    @Override
+    public Controller getController(HttpServletRequest request, String name)
+    {
+        return new NashornController(name);
+    }
+
+    @Override
+    public Controller getController(@Nullable HttpServletRequest request, Class cls)
+    {
+        return new NashornController();
+    }
+
+    private void addControllerAliases()
+    {
+        for (Module m : ModuleLoader.getInstance().getModules())
         {
-            if (!file.getName().endsWith(".js"))
-                continue;
-            String controllerName = file.getName().substring(0,file.getName().length()-3);
-            aliases.add("nashorn-" + controllerName);
+            for (NashornCacheHandler.ScriptWrapper sw : CONTROLLER_CACHE.getResources(m))
+                ModuleLoader.getInstance().addControllerAlias(this, sw.getControllerName(), NashornController.class);
         }
+    }
 
-        addController("nashorn",NashornController.class,aliases.toArray(new String[aliases.size()]));
+    private static ModuleResourceCache<NashornCacheHandler.ScriptWrapper> CONTROLLER_CACHE = null;
+
+    public static NashornCacheHandler.ScriptWrapper getControllerScript(String key)
+    {
+        return CONTROLLER_CACHE.getResource(key);
     }
 }
