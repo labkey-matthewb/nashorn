@@ -1,5 +1,5 @@
 //@ sourceURL=optionalModules/nashorn/resources/controllers/demo.js
-var __extends = this.__extends || function (d, b) {
+var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     __.prototype = b.prototype;
@@ -15,8 +15,7 @@ var Permissions = {
 var Action = (function () {
     function Action() {
     }
-    Action.prototype.validate = function (request, json, errors) {
-    };
+    Action.prototype.validate = function (request, json, errors) { };
     Action.prototype.execute = function (request, json, errors) {
         return { success: true };
     };
@@ -37,15 +36,18 @@ var BeginAction = (function (_super) {
         this.requiresPermission = Permissions.READ;
     }
     BeginAction.prototype.execute = function (request, json, errors) {
+        console.log("<BeginAction.execute>");
         console.log("name=" + json.name);
-        var name = json.name || LABKEY.user.displayName;
-        var ret = { success: true };
-        ret.message = 'Hello ' + name;
-        ret.method = 'GET';
-        ret.url = request.url.toString();
-        ret['user-agent'] = request.headers['user-agent'];
-        ret.contextPath = request.contextPath;
-        ret.params = json;
+        var ret = {
+            success: true,
+            message: 'Hello ' + (json.name || LABKEY.user.displayName),
+            method: 'GET',
+            url: request.url.toString(),
+            userAgent: request.headers['user-agent'],
+            contextPath: request.contextPath,
+            params: json
+        };
+        console.log("</BeginAction.execute>");
         return ret;
     };
     return BeginAction;
@@ -78,15 +80,19 @@ var QueryAction = (function (_super) {
     QueryAction.prototype.validate = function (request, json, errors) {
     };
     QueryAction.prototype.execute = function (request, json, errors) {
-        var rs = LABKEY.queryService.select({
+        console.log("<QueryAction.execute>");
+        var rs = LABKEY.QueryService.select({
             "schemaName": "core",
             "sql": "SELECT userId, email FROM core.Users"
         });
         // TODO Jackson treats nashorn array as a generic Object e.g. {"0":"zero", "1","one"} instead of ["zero","one"]
         var arr = [];
         while (rs.next()) {
+            console.log(rs.getString(2));
             arr.push({ "userid": rs.getNumber(1), "email": rs.getString(2) });
         }
+        rs.close();
+        console.log("</QueryAction.execute>");
         return { success: true, users: arr };
     };
     return QueryAction;
@@ -98,4 +104,3 @@ var actions = {
     second: new SecondAction(),
     query: new QueryAction()
 };
-//# sourceMappingURL=demo.js.map

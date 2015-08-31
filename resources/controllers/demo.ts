@@ -96,7 +96,7 @@ interface LabKey
 {
     user:User;
     container:Container;
-    queryService:QueryService;
+    QueryService:QueryService;
 }
 
 declare var LABKEY:LabKey;
@@ -113,17 +113,23 @@ declare var console:Console;
 
 class BeginAction extends Action
 {
-	public execute(request:Request,json:any, errors:Errors) : Object
+    public execute(request:Request,json:any, errors:Errors) : Object
 	{
+        console.log("<BeginAction.execute>");
         console.log("name="+json.name);
-        var name = json.name || LABKEY.user.displayName;
-        var ret:any = {success:true};
-        ret.message = 'Hello ' + name;
-        ret.method = 'GET';
-        ret.url = request.url.toString();
-        ret['user-agent'] = request.headers['user-agent'];
-        ret.contextPath = request.contextPath;
-        ret.params = json;
+  
+    	var ret:any = 
+		{
+  			success:true,
+			message: 'Hello ' + (json.name || LABKEY.user.displayName),
+			method : 'GET',
+			url : request.url.toString(),
+            userAgent : request.headers['user-agent'],
+			contextPath : request.contextPath,
+			params : json
+		};
+
+        console.log("</BeginAction.execute>");
         return ret;
 	}
 
@@ -163,7 +169,8 @@ class QueryAction extends Action
 
     public execute(request:Request,json:any, errors:Errors) : Object
     {
-        var rs:Results = LABKEY.queryService.select(
+        console.log("<QueryAction.execute>");
+        var rs:Results = LABKEY.QueryService.select(
             {
                 "schemaName":"core",
                 "sql":"SELECT userId, email FROM core.Users"
@@ -172,9 +179,12 @@ class QueryAction extends Action
         var arr = [];
         while (rs.next())
         {
+            console.log(rs.getString(2));
             arr.push({"userid":rs.getNumber(1), "email":rs.getString(2)});
         }
+        rs.close();
 
+        console.log("</QueryAction.execute>");
         return {success:true, users:arr};
     }
 
