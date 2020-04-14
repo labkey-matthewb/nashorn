@@ -1,5 +1,6 @@
 package org.labkey.westside.env;
 
+import org.json.JSONObject;
 import org.labkey.api.view.ActionURL;
 
 import javax.servlet.http.HttpServletRequest;
@@ -10,6 +11,7 @@ import java.util.TreeMap;
 /**
  * Created by matthew on 5/8/15.
  */
+@SuppressWarnings("unused")
 @JSENV
 public class Request implements Wrapped
 {
@@ -58,6 +60,16 @@ public class Request implements Wrapped
     public ActionURL getUrl()
     {
         return _url;
+    }
+
+    public Map<String,String[]> getParameterMap()
+    {
+        return _request.getParameterMap();
+    }
+
+    public String getParameterMapJSON()
+    {
+        return new JSONObject(_request.getParameterMap()).toString();
     }
 
     @Override

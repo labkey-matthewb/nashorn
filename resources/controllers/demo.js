@@ -19,6 +19,15 @@ var PermissionClass = {
     INSERT: "org.labkey.api.security.permissions.InsertPermission",
     ADMIN: "org.labkey.api.security.permissions.AdminPermission"
 };
+var Methods = {
+    GET: "GET",
+    HEAD: "HEAD",
+    POST: "POST",
+    PUT: "PUT",
+    DELETE: "DELETE",
+    OPTIONS: "OPTIONS",
+    TRACE: "TRACE"
+};
 var ValidationError = /** @class */ (function () {
     function ValidationError() {
     }
@@ -36,19 +45,23 @@ var Errors = /** @class */ (function () {
     Errors.prototype.reject = function (message) {
         var error = new ValidationError();
         error.message = message;
+        if (!this.errors)
+            this.errors = [];
         this.errors.push(error);
     };
     Errors.prototype.rejectValue = function (field, message) {
         var error = new ValidationError();
         error.message = message;
         error.field = field;
+        if (!this.errors)
+            this.errors = [];
         this.errors.push(error);
     };
     return Errors;
 }());
 var JsonApiAction = /** @class */ (function () {
     function JsonApiAction() {
-        this.methodsAllowed = ["POST"];
+        this.methodsAllowed = [Methods.POST];
         this.requiresPermission = [PermissionClass.READ];
     }
     JsonApiAction.prototype.JsonApiAction = function () {
@@ -67,7 +80,19 @@ var JsonApiAction = /** @class */ (function () {
             json = JSON.parse(request.getBodyAsString());
         }
         else {
-            // TODO
+            var params = JSON.parse(request.getParameterMapJSON());
+            for (var key in params) {
+                if (!params.hasOwnProperty(key))
+                    continue;
+                var value = params[key];
+                console.log("key=" + key + " value=" + value);
+                if (value.length === 0)
+                    json[key] = "";
+                else if (value.length === 1)
+                    json[key] = value[0];
+                else
+                    json[key] = value;
+            }
         }
         return json;
     };
@@ -85,11 +110,12 @@ var JsonApiAction = /** @class */ (function () {
                 if (!this.errors.hasErrors()) {
                     var method = this.request.getMethod();
                     var value = {};
-                    if (method === "GET")
+                    if (method === Methods.GET)
                         value = this.handleGet(json, this.errors);
-                    else if (method === "POST")
+                    else if (method === Methods.POST)
                         value = this.handlePost(json, this.errors);
                     if (!this.errors.hasErrors()) {
+                        response.setContentType("text/json");
                         response.write(JSON.stringify(value));
                         return;
                     }
@@ -101,6 +127,7 @@ var JsonApiAction = /** @class */ (function () {
         //     message = ex;
         // }
         finally { }
+        response.setContentType("text/json");
         response.write(JSON.stringify(this.failResponse(message, this.errors)));
     };
     JsonApiAction.prototype.validate = function (json, errors) { };
@@ -145,12 +172,13 @@ var SecondAction = /** @class */ (function (_super) {
     }
     SecondAction.prototype.validate = function (json, errors) {
         console.log("json.name=" + json.name);
-        if (json.name == 'Fred') {
-            errors.reject("not that guy");
-        }
+        if (!json.name)
+            errors.rejectValue("name", "value is required");
+        if (json.name == 'Fred')
+            errors.rejectValue("name", "not that guy");
     };
-    SecondAction.prototype.handleGET = function (json, errors) {
-        return { success: true, answer: 42 };
+    SecondAction.prototype.handleGet = function (json, errors) {
+        return this.successResponse({ name: json.name, answer: 42 });
     };
     return SecondAction;
 }(JsonApiAction));
@@ -158,7 +186,7 @@ var QueryAction = /** @class */ (function (_super) {
     __extends(QueryAction, _super);
     function QueryAction() {
         var _this = _super !== null && _super.apply(this, arguments) || this;
-        _this.methodsAllowed = ['GET'];
+        _this.methodsAllowed = [Methods.GET];
         _this.requiresPermission = [PermissionClass.READ];
         return _this;
     }
@@ -170,7 +198,6 @@ var QueryAction = /** @class */ (function (_super) {
             "schemaName": "core",
             "sql": "SELECT userId, email FROM core.Users"
         });
-        // TODO Jackson treats nashorn array as a generic Object e.g. {"0":"zero", "1","one"} instead of ["zero","one"]
         var arr = [];
         while (rs.next()) {
             console.log(rs.getString(2));

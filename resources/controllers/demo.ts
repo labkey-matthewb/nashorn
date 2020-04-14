@@ -8,6 +8,16 @@ const PermissionClass =
     INSERT:"org.labkey.api.security.permissions.InsertPermission",
     ADMIN:"org.labkey.api.security.permissions.AdminPermission"
 };
+const Methods =
+{
+    GET: "GET",
+    HEAD: "HEAD",
+    POST: "POST",
+    PUT: "PUT",
+    DELETE: "DELETE",
+    OPTIONS: "OPTIONS",
+    TRACE: "TRACE"
+};
 class ValidationError
 {
     public message:string;
@@ -29,6 +39,8 @@ class Errors
     {
         const error = new ValidationError();
         error.message = message;
+        if (!this.errors)
+            this.errors = [];
         this.errors.push(error)
     }
     public rejectValue(field:string, message:string)
@@ -36,6 +48,8 @@ class Errors
         const error = new ValidationError();
         error.message = message;
         error.field = field;
+        if (!this.errors)
+            this.errors = [];
         this.errors.push(error)
     }
 }
@@ -95,6 +109,9 @@ interface lkRequest
     getContextPath(): string;
     getHeaders(): Object;
     getBodyAsString(): string;
+    getParameterMap(): any;
+    // TODO (seems kinda hacky?)
+    getParameterMapJSON(): string;
 }
 interface lkResponse
 {
@@ -141,7 +158,20 @@ class JsonApiAction implements Action
         }
         else
         {
-            // TODO
+            let params = JSON.parse(request.getParameterMapJSON());
+            for (let key in params)
+            {
+                if (!params.hasOwnProperty(key))
+                    continue;
+                let value = params[key];
+                console.log("key=" + key + " value=" + value);
+                if (value.length===0)
+                    json[key] = "";
+                else if (value.length===1)
+                    json[key] = value[0];
+                else
+                    json[key] = value;
+            }
         }
         return json;
     }
@@ -154,24 +184,25 @@ class JsonApiAction implements Action
         this.errors = new Errors();
         this.user = LABKEY.getUser();
 
-        var message = null;
+        let message = null;
 
         try
         {
-            var json = this.bind(this.request, this.errors);
+            let json = this.bind(this.request, this.errors);
             if (!this.errors.hasErrors())
             {
                 this.validate(json, this.errors);
                 if (!this.errors.hasErrors())
                 {
-                    var method = this.request.getMethod();
-                    var value = {};
-                    if (method === "GET")
+                    let method = this.request.getMethod();
+                    let value = {};
+                    if (method === Methods.GET)
                         value = this.handleGet(json, this.errors);
-                    else if (method === "POST")
+                    else if (method === Methods.POST)
                         value = this.handlePost(json, this.errors);
                     if (!this.errors.hasErrors())
                     {
+                        response.setContentType("text/json");
                         response.write(JSON.stringify(value));
                         return;
                     }
@@ -183,6 +214,7 @@ class JsonApiAction implements Action
         //     message = ex;
         // }
         finally {}
+        response.setContentType("text/json");
         response.write(JSON.stringify(this.failResponse(message,this.errors)));
     }
 
@@ -199,7 +231,7 @@ class JsonApiAction implements Action
     errors: Errors;
     request: lkRequest;
     response: lkResponse;
-    methodsAllowed: string[] = ["POST"];
+    methodsAllowed: string[] = [Methods.POST];
     requiresPermission : string[] = [PermissionClass.READ];
 }
 
@@ -258,18 +290,17 @@ class SecondAction extends JsonApiAction
     public validate(json:any, errors:Errors) : void
     {
         console.log("json.name=" + json.name);
+        if (!json.name)
+            errors.rejectValue("name", "value is required");
         if (json.name == 'Fred')
-        {
-            errors.reject("not that guy");
-        }
+            errors.rejectValue("name", "not that guy");
     }
-    public handleGET(json:any, errors:Errors) : Object
+    public handleGet(json:any, errors:Errors) : Object
     {
-        return {success:true, answer:42};
+        return this.successResponse({name:json.name, answer:42});
     }
 
     methodsAllowed:string[] = ['GET'];
-
     requiresPermission:string[] = [PermissionClass.READ];
 }
 
@@ -284,13 +315,12 @@ class QueryAction extends JsonApiAction
     public handleGet(json:any, errors:Errors) : Object
     {
         console.log("<QueryAction.execute>");
-        var rs:Results = LABKEY.getQueryService().select(
+        let rs:Results = LABKEY.getQueryService().select(
             {
                 "schemaName":"core",
                 "sql":"SELECT userId, email FROM core.Users"
             });
-        // TODO Jackson treats nashorn array as a generic Object e.g. {"0":"zero", "1","one"} instead of ["zero","one"]
-        var arr = [];
+        let arr = [];
         while (rs.next())
         {
             console.log(rs.getString(2));
@@ -302,8 +332,7 @@ class QueryAction extends JsonApiAction
         return {users:arr};
     }
 
-    methodsAllowed:string[] = ['GET'];
-
+    methodsAllowed:string[] = [ Methods.GET ];
     requiresPermission:string[] = [PermissionClass.READ];
 }
 

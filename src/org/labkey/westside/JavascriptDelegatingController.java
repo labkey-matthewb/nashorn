@@ -145,6 +145,7 @@ public class JavascriptDelegatingController extends SpringActionController
         public ModelAndView handleRequest(HttpServletRequest request, HttpServletResponse response) throws Exception
         {
             response.setHeader("X-Robots-Tag", "noindex");
+            response.setContentType("text/json");   // default to json instead of html
 
             String controllerName = getViewContext().getActionURL().getController();
             String actionName = getViewContext().getActionURL().getAction();
