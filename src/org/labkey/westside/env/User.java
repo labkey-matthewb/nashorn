@@ -1,9 +1,10 @@
-package org.labkey.nashorn.env;
+package org.labkey.westside.env;
 
 /**
  * Created by matthew on 5/8/15.
  */
-public class User implements _Wrapper
+@JSENV
+public class User implements Wrapped
 {
     final org.labkey.api.security.User _user;
 

@@ -1,6 +1,5 @@
-package org.labkey.nashorn.env;
+package org.labkey.westside.env;
 
-import jdk.nashorn.api.scripting.ScriptObjectMirror;
 import org.labkey.api.data.ContainerManager;
 import org.labkey.api.data.Results;
 import org.labkey.api.data.TableInfo;
@@ -18,6 +17,7 @@ import java.util.Map;
  * straight LabKey SQL w/o display columns.
  */
 
+@JSENV
 public class QueryService
 {
     final org.labkey.api.data.Container _defaultContainer;
@@ -29,18 +29,21 @@ public class QueryService
         _user = user;
     }
 
-    public Results select(ScriptObjectMirror obj) throws SQLException
+    @JSENV
+    public Results select(Object obj) throws SQLException
     {
-        String containerPath = (String)obj.get("containerPath");
-        String schemaName = (String)obj.get("schemaName");
-        String sql = (String)obj.get("sql");
-        Map parameters = (Map)obj.get("parameters");
-        org.labkey.api.data.Container c = null==containerPath ? _defaultContainer : ContainerManager.getForPath(containerPath);
-        DefaultSchema rootSchema = DefaultSchema.get(_user, c);
-        QuerySchema schema = rootSchema.getSchema(schemaName);
-        Map<String,TableInfo> tableMap = new HashMap<>();
-        Results rs = org.labkey.api.query.QueryService.get().selectResults(schema, sql, tableMap, parameters, true, true);
-        return rs;
+// GRAAL
+//        String containerPath = (String)obj.get("containerPath");
+//        String schemaName = (String)obj.get("schemaName");
+//        String sql = (String)obj.get("sql");
+//        Map parameters = (Map)obj.get("parameters");
+//        org.labkey.api.data.Container c = null==containerPath ? _defaultContainer : ContainerManager.getForPath(containerPath);
+//        DefaultSchema rootSchema = DefaultSchema.get(_user, c);
+//        QuerySchema schema = rootSchema.getSchema(schemaName);
+//        Map<String,TableInfo> tableMap = new HashMap<>();
+//        Results rs = org.labkey.api.query.QueryService.get().selectResults(schema, sql, tableMap, parameters, true, true);
+//        return rs;
+        return null;
     }
 }
 

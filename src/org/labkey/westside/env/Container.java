@@ -1,12 +1,11 @@
-package org.labkey.nashorn.env;
+package org.labkey.westside.env;
 
 import org.jetbrains.annotations.NotNull;
-import org.labkey.api.util.GUID;
 
 /**
  * Created by matthew on 5/8/15.
  */
-public class Container implements _Wrapper
+public class Container implements Wrapped
 {
     final org.labkey.api.data.Container _container;
 

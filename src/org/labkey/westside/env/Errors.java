@@ -1,7 +1,7 @@
-package org.labkey.nashorn.env;
+package org.labkey.westside.env;
 
-import jdk.nashorn.api.scripting.ScriptObjectMirror;
 import org.labkey.api.action.SpringActionController;
+import org.graalvm.polyglot.Source;
 
 /**
  * Created by matthew on 5/19/15.
@@ -15,7 +15,7 @@ public class Errors
         this._errors = errors;
     }
 
-    public void reject(ScriptObjectMirror obj)
+    public void reject(Object obj)
     {
         String field = getString(obj,"field");
         String message = getString(obj,"message");
@@ -32,10 +32,9 @@ public class Errors
         }
     }
 
-
-    private String getString(ScriptObjectMirror obj, String fieldName)
+    private String getString(Object obj, String fieldName)
     {
-        Object o = obj.get(fieldName);
+        Object o = null; // GRAAL obj.get(fieldName);
         if (null == o)
             return null;
         return String.valueOf(o);

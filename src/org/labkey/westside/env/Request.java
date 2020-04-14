@@ -1,8 +1,7 @@
-package org.labkey.nashorn.env;
+package org.labkey.westside.env;
 
 import org.labkey.api.view.ActionURL;
 
-import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpServletRequest;
 import java.util.Enumeration;
 import java.util.Map;
@@ -10,10 +9,9 @@ import java.util.TreeMap;
 
 /**
  * Created by matthew on 5/8/15.
- *
- * https://nodejs.org/api/http.html#http_http_incomingmessage
  */
-public class Request implements _Wrapper
+@JSENV
+public class Request implements Wrapped
 {
     final HttpServletRequest _request;
     final ActionURL _url;
@@ -24,6 +22,7 @@ public class Request implements _Wrapper
         _url = url;
     }
 
+    @JSENV
     public Map<String,String> getHeaders()
     {
         TreeMap<String,String> headers = new TreeMap<>();
@@ -36,9 +35,24 @@ public class Request implements _Wrapper
         return headers;
     }
 
+    public String getMethod()
+    {
+        return _request.getMethod();
+    }
+
     public String getContextPath()
     {
         return _request.getContextPath();
+    }
+
+    public String getContentType()
+    {
+        return _request.getContentType();
+    }
+
+    public String getRequestURI()
+    {
+        return _request.getRequestURI();
     }
 
     public ActionURL getUrl()

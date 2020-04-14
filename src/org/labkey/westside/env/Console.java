@@ -1,6 +1,8 @@
-package org.labkey.nashorn.env;
+package org.labkey.westside.env;
 
 import org.apache.log4j.Logger;
+import org.graalvm.polyglot.Value;
+import org.graalvm.polyglot.proxy.ProxyObject;
 import org.labkey.api.script.ScriptService;
 
 /**
@@ -31,4 +33,29 @@ public class Console
     {
         _log.warn(msg);
     }
+
+/*
+    @Override
+    public Object getMember(String key)
+    {
+        return null;
+    }
+
+    @Override
+    public Object getMemberKeys()
+    {
+        return null;
+    }
+
+    @Override
+    public boolean hasMember(String key)
+    {
+        return false;
+    }
+
+    @Override
+    public void putMember(String key, Value value)
+    {
+
+    } */
 }

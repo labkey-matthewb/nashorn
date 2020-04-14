@@ -1,6 +1,6 @@
 //@ sourceURL=optionalModules/nashorn/resources/controllers/demo.js
 
-var Permissions =
+const PermissionClass =
 {
     READ:"org.labkey.api.security.permissions.ReadPermission",
     DELETE:"org.labkey.api.security.permissions.DeletePermission",
@@ -8,16 +8,36 @@ var Permissions =
     INSERT:"org.labkey.api.security.permissions.InsertPermission",
     ADMIN:"org.labkey.api.security.permissions.AdminPermission"
 };
-interface ValidationError
+class ValidationError
 {
-    message?:string;
-    field?:string;           // TODO: field does not work with org.springframework.validation.BindException, may need custom implementation of Errors
-    errorCode?:string;
-    arguments?:any[];
+    public message:string;
+    public field?:string;
 }
-interface Errors
+class Errors
 {
-    reject(error:ValidationError):void;
+    errors:ValidationError[];
+
+    Errors()
+    {
+        this.errors = [];
+    }
+    public hasErrors() : boolean
+    {
+        return this.errors && 0!=this.errors.length;
+    }
+    public reject(message:string)
+    {
+        const error = new ValidationError();
+        error.message = message;
+        this.errors.push(error)
+    }
+    public rejectValue(field:string, message:string)
+    {
+        const error = new ValidationError();
+        error.message = message;
+        error.field = field;
+        this.errors.push(error)
+    }
 }
 interface Console
 {
@@ -40,7 +60,7 @@ interface FieldKey  // TODO
 }
 interface Results
 {
-    next() : void;
+    next() : boolean;
     wasNull() : boolean;
     close() : void;
     // for scrollable results...
@@ -62,45 +82,139 @@ interface QueryService
 {
     select(config:any) : Results
 }
-interface Request
+interface ActionURL
 {
-    url: string;
-    contextPath: string;
-    headers: Object;
+    getParameter(key:string) : string|string[];
 }
-interface User
+interface lkRequest
 {
-    id:number;
-    email:string;
-    displayName:string;
+    getContentType() : string;
+    getMethod() : string;
+    getRequestURI(): string;
+    getActionURL(): ActionURL;
+    getContextPath(): string;
+    getHeaders(): Object;
+    getBodyAsString(): string;
 }
-class Action
+interface lkResponse
 {
-    public validate(request:Request, json:any, errors:Errors) : void {}
-    public execute(request:Request, json:any, errors:Errors) : Object
-    {
-        return {success:true};
-    }
-    public execute_POST(request:Request, json:any, errors:Errors) : Object
-    {
-        return this.execute(request,json,errors);
-    }
-    public execute_GET(request:Request, json:any, errors:Errors) : Object
-    {
-        return this.execute(request,json,errors);
-    }
+    setContentType(contentType: string) : void;
+    getWriter() : any;
+    write(s:string) : void;
+    sendError(status: number, message: string);
+}
+interface lkUser
+{
+    getId():number;
+    getEmail():string;
+    getDisplayName():string;
+}
+interface Action
+{
+    execute(request:lkRequest, response: lkResponse);
     methodsAllowed: string[];
-    requiresPermission : string;
+    requiresPermission : string[];
 }
+class JsonApiAction implements Action
+{
+    public JsonApiAction()
+    {
+        this.user = LABKEY.getUser();
+        this.errors = new Errors();
+    }
+
+    public failResponse(message:string, errors:Errors) : any
+    {
+        return {success: false, message:message, errors: errors};
+    }
+    public successResponse(value:Object)
+    {
+        return {success: true, value: value};
+    }
+
+    public bind(request: lkRequest, errors:Errors): Object
+    {
+        let json = {};
+        if (request.getContentType() === "text/json")
+        {
+            json = JSON.parse(request.getBodyAsString());
+        }
+        else
+        {
+            // TODO
+        }
+        return json;
+    }
+
+    execute(request:lkRequest, response: lkResponse)
+    {
+        this.request = request;
+        this.response = response;
+        // HUH???
+        this.errors = new Errors();
+        this.user = LABKEY.getUser();
+
+        var message = null;
+
+        try
+        {
+            var json = this.bind(this.request, this.errors);
+            if (!this.errors.hasErrors())
+            {
+                this.validate(json, this.errors);
+                if (!this.errors.hasErrors())
+                {
+                    var method = this.request.getMethod();
+                    var value = {};
+                    if (method === "GET")
+                        value = this.handleGet(json, this.errors);
+                    else if (method === "POST")
+                        value = this.handlePost(json, this.errors);
+                    if (!this.errors.hasErrors())
+                    {
+                        response.write(JSON.stringify(value));
+                        return;
+                    }
+                }
+            }
+        }
+        // catch (ex)
+        // {
+        //     message = ex;
+        // }
+        finally {}
+        response.write(JSON.stringify(this.failResponse(message,this.errors)));
+    }
+
+    public validate(json:any, errors:Errors) : void {}
+
+    public handleGet(json : Object, errors:Errors) : any
+    {
+    }
+    public handlePost(json:any, errors:Errors) : any
+    {
+    }
+
+    user: lkUser;
+    errors: Errors;
+    request: lkRequest;
+    response: lkResponse;
+    methodsAllowed: string[] = ["POST"];
+    requiresPermission : string[] = [PermissionClass.READ];
+}
+
+
 interface LabKey
 {
-    user:User;
-    container:Container;
-    QueryService:QueryService;
+    getUser():lkUser;
+    getContainer():Container;
+    getQueryService():QueryService;
 }
 
 declare var LABKEY:LabKey;
 declare var console:Console;
+
+
 
 
 
@@ -111,66 +225,66 @@ declare var console:Console;
 
 
 
-class BeginAction extends Action
+
+
+class BeginAction extends JsonApiAction
 {
-    public execute(request:Request,json:any, errors:Errors) : Object
-	{
-        console.log("<BeginAction.execute>");
+    public handleGet(json:any, errors:Errors) : Object
+    {
+        console.log("<BeginAction.handleGet>");
         console.log("name="+json.name);
   
-    	var ret:any = 
+    	const ret:any =
 		{
-  			success:true,
-			message: 'Hello ' + (json.name || LABKEY.user.displayName),
+			message: 'Hello ' + this.user.getDisplayName(),
 			method : 'GET',
-			url : request.url.toString(),
-            userAgent : request.headers['user-agent'],
-			contextPath : request.contextPath,
+			url : this.request.getRequestURI(),
+            userAgent : this.request.getHeaders()['user-agent'],
+			contextPath : this.request.getContextPath(),
 			params : json
 		};
 
-        console.log("</BeginAction.execute>");
-        return ret;
+        console.log("</BeginAction.handleGet>");
+        return this.successResponse(ret);
 	}
 
 	methodsAllowed:string[] = ['POST','GET'];
-
-    requiresPermission:string = Permissions.READ;
+    requiresPermission:string[] = [PermissionClass.READ];
 }
 
 
-class SecondAction extends Action
+class SecondAction extends JsonApiAction
 {
-    public validate(request:Request, json:any, errors:Errors) : void
+    public validate(json:any, errors:Errors) : void
     {
         console.log("json.name=" + json.name);
         if (json.name == 'Fred')
         {
-            errors.reject({message:'not that guy'});
+            errors.reject("not that guy");
         }
     }
-    public execute(request:Request,json:any, errors:Errors) : Object
+    public handleGET(json:any, errors:Errors) : Object
     {
         return {success:true, answer:42};
     }
 
     methodsAllowed:string[] = ['GET'];
 
-    requiresPermission:string = Permissions.READ;
+    requiresPermission:string[] = [PermissionClass.READ];
 }
 
 
 
-class QueryAction extends Action
+class QueryAction extends JsonApiAction
 {
-    public validate(request:Request, json:any, errors:Errors) : void
+    public validate(json:any, errors:Errors) : void
     {
     }
 
-    public execute(request:Request,json:any, errors:Errors) : Object
+    public handleGet(json:any, errors:Errors) : Object
     {
         console.log("<QueryAction.execute>");
-        var rs:Results = LABKEY.QueryService.select(
+        var rs:Results = LABKEY.getQueryService().select(
             {
                 "schemaName":"core",
                 "sql":"SELECT userId, email FROM core.Users"
@@ -185,12 +299,12 @@ class QueryAction extends Action
         rs.close();
 
         console.log("</QueryAction.execute>");
-        return {success:true, users:arr};
+        return {users:arr};
     }
 
     methodsAllowed:string[] = ['GET'];
 
-    requiresPermission:string = Permissions.READ;
+    requiresPermission:string[] = [PermissionClass.READ];
 }
 
 
@@ -200,7 +314,7 @@ class QueryAction extends Action
 
 var actions:Object =
 {
-	begin: new BeginAction(),
-	second: new SecondAction(),
-    query: new QueryAction()
+	begin:  BeginAction,
+	second: SecondAction,
+    query:  QueryAction
 };

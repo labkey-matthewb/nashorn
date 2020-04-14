@@ -1,9 +1,9 @@
-package org.labkey.nashorn.env;
+package org.labkey.westside.env;
 
 /**
  * Created by matthew on 5/9/15.
  */
-public interface _Wrapper
+public interface Wrapped
 {
     Object unwrap(Class cls);
 }
