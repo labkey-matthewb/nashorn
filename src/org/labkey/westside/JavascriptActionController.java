@@ -24,8 +24,6 @@ import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.Value;
 import org.json.JSONObject;
 import org.labkey.api.action.FormApiAction;
-import org.labkey.api.action.Marshal;
-import org.labkey.api.action.Marshaller;
 import org.labkey.api.action.PermissionCheckableAction;
 import org.labkey.api.action.SpringActionController;
 import org.labkey.api.security.RequiresNoPermission;
@@ -35,6 +33,7 @@ import org.labkey.api.view.JspView;
 import org.labkey.api.view.NavTree;
 import org.labkey.api.view.NotFoundException;
 import org.labkey.api.view.UnauthorizedException;
+import org.labkey.api.view.WebPartView;
 import org.labkey.westside.env.Console;
 import org.labkey.westside.env.JSENV;
 import org.labkey.westside.env.Request;
@@ -46,23 +45,24 @@ import org.springframework.web.servlet.mvc.Controller;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-public class JavascriptDelegatingController extends SpringActionController
+public class JavascriptActionController extends SpringActionController
 {
     static final String NAME = "script";
-    static final Logger _log = Logger.getLogger(JavascriptDelegatingController.class);
+    static final Logger _log = Logger.getLogger(JavascriptActionController.class);
     final String resolvedName;
 
 
     static final String executeFnName = "execute";
+    static final String renderFnName = "render";
     static final String requiresPermissionName = "requiresPermission";
 
 
-    private static final DefaultActionResolver _actionResolver = new DefaultActionResolver(JavascriptDelegatingController.class)
+    private static final DefaultActionResolver _actionResolver = new DefaultActionResolver(JavascriptActionController.class)
     {
         @Override
         public Controller resolveActionName(Controller actionController, String name)
         {
-            JavascriptDelegatingController me = (JavascriptDelegatingController)actionController;
+            JavascriptActionController me = (JavascriptActionController)actionController;
             // if controller is invoked with the default name "script" then act like a regular controller
             if (me.resolvedName.equals(NAME))
             {
@@ -76,14 +76,14 @@ public class JavascriptDelegatingController extends SpringActionController
     };
 
 
-    public JavascriptDelegatingController()
+    public JavascriptActionController()
     {
         setActionResolver(_actionResolver);
         resolvedName = NAME;
     }
 
 
-    public JavascriptDelegatingController(String name)
+    public JavascriptActionController(String name)
     {
         setActionResolver(_actionResolver);
         this.resolvedName = name;
@@ -91,7 +91,6 @@ public class JavascriptDelegatingController extends SpringActionController
 
 
     @RequiresNoPermission
-    @Marshal(Marshaller.Jackson)
     public class ActionAction extends PermissionCheckableAction
     {
         public ActionAction()
@@ -132,6 +131,38 @@ public class JavascriptDelegatingController extends SpringActionController
         }
 
 
+        Value getViewInstance(Context context, String viewName)
+        {
+            var bindings = context.getBindings("js");
+            if (!bindings.hasMember("views"))
+                throw new NotFoundException("exports variable 'views' not found");
+            Value views = bindings.getMember("views");
+
+            // HANDLE both instantiated object as well as class?
+            if (!views.hasMember(viewName))
+                throw new NotFoundException("view not found: " + viewName);
+            Value actionValue = views.getMember(viewName);
+            Value actionImpl = actionValue;
+            if (actionValue.canInstantiate())
+                actionImpl = actionValue.newInstance();
+
+            // validate object
+            Value render = null;
+            Value requiresPermission = null;
+
+            if (actionImpl.hasMember(renderFnName))
+                render = actionImpl.getMember(renderFnName);
+            if (actionImpl.hasMember(requiresPermissionName))
+                requiresPermission = actionImpl.getMember(requiresPermissionName);
+
+            if (null == render || null == requiresPermission || !render.canExecute() || !requiresPermission.hasArrayElements())
+            {
+                throw new IllegalStateException("Action must have a '" + renderFnName +  "' function method and a '" + requiresPermissionName + "' array member.");
+            }
+
+            return actionImpl;
+        }
+
 
         @Override
         protected void checkPermissions(UnauthorizedException.Type unauthorizedType) throws UnauthorizedException
@@ -139,7 +170,6 @@ public class JavascriptDelegatingController extends SpringActionController
             super.checkPermissions(unauthorizedType);
             // TODO check requiresPermission
         }
-
 
         @Override
         public ModelAndView handleRequest(HttpServletRequest request, HttpServletResponse response) throws Exception
@@ -154,31 +184,37 @@ public class JavascriptDelegatingController extends SpringActionController
 
             Context context = getScriptContext();
 
-            // evaluate controller script
-            ScriptCacheHandler.ScriptWrapper w = ScriptControllerManager.getControllerScript((controllerName).toLowerCase());
-            if (null == w)
+            Source source  = ControllerScriptManager.getControllerScriptSource((controllerName).toLowerCase());
+            if (null == source)
                 throw new NotFoundException("Could not find script corresponding to " + controllerName);
-            Source source = w.getSource();
             context.eval(source);
 
-            Value actionImpl = getActionInstance(context, actionName);
+            boolean isapi = getViewContext().getRequest().getRequestURI().endsWith(".api");
 
-//            _dump(actionImpl);
-//            _dump(actionImpl.getMetaObject());
-
-            Request envRequest = new Request(getViewContext().getRequest(), getViewContext().getActionURL());
-            Response envResponse = new Response(getViewContext().getResponse());
-
-            if (!actionImpl.hasMember(executeFnName))
-                throw new NotFoundException("method '" + executeFnName + "' not found for action '" + actionName + "'");
-            Value executeFn = actionImpl.getMember(executeFnName);
-            if (!executeFn.canExecute())
-                throw new NotFoundException("method '" + executeFnName + "' not found for action '" + actionName + "'");
-            actionImpl.invokeMember(executeFnName, envRequest, envResponse);
-            return null;
+            if (isapi)
+            {
+                final Value actionImpl = getActionInstance(context, actionName);
+                final Request envRequest = new Request(getViewContext().getRequest(), getViewContext().getActionURL());
+                final Response envResponse = new Response(getViewContext().getResponse());
+                actionImpl.invokeMember(executeFnName, envRequest, envResponse);
+                return null;
+            }
+            else
+            {
+                final Value actionImpl = getViewInstance(context, actionName);
+                return new WebPartView(WebPartView.FrameType.PORTAL)
+                {
+                    @Override
+                    protected void renderView(Object model, HttpServletRequest request, HttpServletResponse response) throws Exception
+                    {
+                        final Request envRequest = new Request(getViewContext().getRequest(), getViewContext().getActionURL());
+                        final Response envResponse = new Response(getViewContext().getResponse());
+                        actionImpl.invokeMember(renderFnName, envRequest, envResponse);
+                    }
+                };
+            }
         }
     }
-
 
 
     @SuppressWarnings("unused")
@@ -270,52 +306,16 @@ public class JavascriptDelegatingController extends SpringActionController
         HostAccess access = HostAccess.newBuilder()
                 .allowImplementationsAnnotatedBy(JSENV.class)
                 .allowAccessAnnotatedBy(JSENV.class)
+                .allowArrayAccess(true)
                 .allowPublicAccess(true)
                 .build();
 
         Context context = Context.newBuilder("js")
                 .allowHostAccess(access).build();
         var scope = context.getBindings("js");
-        scope.putMember("LABKEY", new org.labkey.westside.env.LABKEY(getViewContext()));
+        scope.putMember("ServiceManager", new org.labkey.westside.env.LABKEY(getViewContext()));
         scope.putMember("console",new Console());
         _graalContext = context;
         return _graalContext;
     }
 }
-
-
-/*
-
- private void _dump(Value v)
- {
- try
- {
- System.out.println(String.valueOf(v.getMetaObject()));
- for (var k : v.getMemberKeys())
- {
- String value = "-";
- try
- {
- value = String.valueOf(v.getMember(k));
- }
- catch (Throwable t)
- {
- value = t.getMessage();
- }
- System.out.println(k + ": " + value);
- }
- if (v.hasMember("prototype"))
- System.out.println("prototype: " + v.getMember("prototype").getMetaObject().toString());
- if (v.hasMember("execute_GET"))
- System.out.println("execute_GET: " + v.getMember("execute_GET").canExecute());
- if (v.hasMember("execute_POST"))
- System.out.println("execute_POST: " + v.getMember("execute_POST").canExecute());
- if (v.hasMember("execute"))
- System.out.println("execute: " + v.getMember("execute").canExecute());
- }
- catch (Throwable t)
- {
- t.printStackTrace();
- }
- }
-*/

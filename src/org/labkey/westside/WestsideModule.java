@@ -18,19 +18,28 @@ package org.labkey.westside;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.labkey.api.data.Container;
+import org.labkey.api.module.CodeOnlyModule;
 import org.labkey.api.module.ModuleContext;
-import org.labkey.api.module.SimpleModule;
 import org.labkey.api.view.WebPartFactory;
 import org.springframework.web.servlet.mvc.Controller;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Set;
 
-
-public class WestsideModule extends SimpleModule
+/*
+ * This is not like SimpleModule that other modules extends, instead it handles two new kinds of resources in other
+ * modules and registers them.
+ *
+ * /controllers/{script}.js
+ *      creates a new controller that defines actions in javascript e.g. /labkey/home/modulename-script-myaction.api
+ *
+ * /views/{view}.js
+ *      creates a new view (and optionally webpart with .webpart.xml) e.g. /labkey/home/modulename-ws-view.view
+ *
+ * TODO have one controller name for both the html views and js views
+ */
+public class WestsideModule extends CodeOnlyModule
 {
     public WestsideModule()
     {
@@ -61,38 +70,21 @@ public class WestsideModule extends SimpleModule
         addController("nashorn", JavascriptDelegatingController.class);
     }
 
-
-    @Override
-    public void startupAfterSpringConfig(ModuleContext moduleContext)
-    {
-        ScriptControllerManager.addControllerAliases(this);
-    }
-
     @Override
     public Controller getController(HttpServletRequest request, String name)
     {
-        return ScriptControllerManager.getController(request, name);
+        return ControllerScriptManager.getController(request, name);
     }
-
 
     @Override
     public Controller getController(@Nullable HttpServletRequest request, Class cls)
     {
-        return ScriptControllerManager.getController(request, cls);
-    }
-
-
-    @NotNull
-    @Override
-    public Collection<String> getSummary(Container c)
-    {
-        return Collections.emptyList();
+        return ControllerScriptManager.getController(request, cls);
     }
 
     @Override
-    @NotNull
-    public Set<String> getSchemaNames()
+    protected void doStartup(ModuleContext moduleContext)
     {
-        return Collections.emptySet();
+        ControllerScriptManager.addControllerAliases(this);
     }
 }

@@ -2,6 +2,7 @@
 
 const PermissionClass =
 {
+    NONE:"",
     READ:"org.labkey.api.security.permissions.ReadPermission",
     DELETE:"org.labkey.api.security.permissions.DeletePermission",
     UPDATE:"org.labkey.api.security.permissions.UpdatePermission",
@@ -126,11 +127,19 @@ interface lkUser
     getEmail():string;
     getDisplayName():string;
 }
+interface View
+{
+    render(request:lkRequest, response: lkResponse);
+}
 interface Action
 {
     execute(request:lkRequest, response: lkResponse);
     methodsAllowed: string[];
     requiresPermission : string[];
+}
+interface View
+{
+    render(request:lkRequest, response: lkResponse);
 }
 class JsonApiAction implements Action
 {
@@ -337,13 +346,27 @@ class QueryAction extends JsonApiAction
 }
 
 
+class HtmlView implements View
+{
+    render(request: lkRequest, response: lkResponse)
+    {
+        response.write("<div><h1>Hello World</h1></div>")
+    }
+    requiresPermission:string[] = [PermissionClass.NONE];
+}
+
 
 // CONSIDER: "tsc --module" and "export var actions"?
 // CONSIDER: advantages? disadvantages?
 
-var actions:Object =
+let actions:Object =
 {
 	begin:  BeginAction,
 	second: SecondAction,
     query:  QueryAction
+};
+
+let views:Object =
+{
+    html:   HtmlView
 };
