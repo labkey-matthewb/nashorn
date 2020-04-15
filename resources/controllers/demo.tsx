@@ -1,4 +1,6 @@
 //@ sourceURL=optionalModules/nashorn/resources/controllers/demo.js
+import React, {createElement} from "react";
+import ReactDOMServer from "react-dom-server";
 
 const PermissionClass =
 {
@@ -34,7 +36,7 @@ class Errors
     }
     public hasErrors() : boolean
     {
-        return this.errors && 0!=this.errors.length;
+        return this.errors && 0!==this.errors.length;
     }
     public reject(message:string)
     {
@@ -129,17 +131,25 @@ interface lkUser
 }
 interface View
 {
-    render(request:lkRequest, response: lkResponse);
+    render(request:lkRequest, response: lkResponse):void;
 }
 interface Action
 {
-    execute(request:lkRequest, response: lkResponse);
+    execute(request:lkRequest, response: lkResponse):void;
     methodsAllowed: string[];
     requiresPermission : string[];
 }
-interface View
+class BaseReactView implements View
 {
-    render(request:lkRequest, response: lkResponse);
+    render(request: lkRequest, response: lkResponse):void
+    {
+        const element = this.getMarkup();
+        response.write(ReactDOMServer.renderToStaticMarkup(element));
+    }
+    getMarkup():any
+    {
+        return [];
+    }
 }
 class JsonApiAction implements Action
 {
@@ -350,23 +360,31 @@ class HtmlView implements View
 {
     render(request: lkRequest, response: lkResponse)
     {
-        response.write("<div><h1>Hello World</h1></div>")
+        response.write("<div><h1>Hello World</h1></div>");
+        return null;
     }
     requiresPermission:string[] = [PermissionClass.NONE];
 }
 
 
-// CONSIDER: "tsc --module" and "export var actions"?
-// CONSIDER: advantages? disadvantages?
+class ReactView extends BaseReactView
+{
+    getMarkup()
+    {
+        return <div><h1>Hello React</h1></div>;
+    }
+    requiresPermission:string[] = [PermissionClass.NONE];
+}
 
-let actions:Object =
+exports.actions =
 {
 	begin:  BeginAction,
 	second: SecondAction,
     query:  QueryAction
 };
 
-let views:Object =
+exports.views =
 {
-    html:   HtmlView
+    html:   HtmlView,
+    react:  ReactView
 };

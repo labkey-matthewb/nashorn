@@ -33,6 +33,10 @@ public class Console
     {
         _log.warn(msg);
     }
+    public void error(String msg)
+    {
+        _log.error(msg);
+    }
 
 /*
     @Override

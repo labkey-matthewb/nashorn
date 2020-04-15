@@ -29,11 +29,13 @@ import org.labkey.api.action.SpringActionController;
 import org.labkey.api.security.RequiresNoPermission;
 import org.labkey.api.security.RequiresSiteAdmin;
 import org.labkey.api.settings.AppProps;
+import org.labkey.api.util.ConfigurationException;
 import org.labkey.api.view.JspView;
 import org.labkey.api.view.NavTree;
 import org.labkey.api.view.NotFoundException;
 import org.labkey.api.view.UnauthorizedException;
 import org.labkey.api.view.WebPartView;
+import org.labkey.bootstrap.ConfigException;
 import org.labkey.westside.env.Console;
 import org.labkey.westside.env.JSENV;
 import org.labkey.westside.env.Request;
@@ -44,6 +46,10 @@ import org.springframework.web.servlet.mvc.Controller;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 
 public class JavascriptActionController extends SpringActionController
 {
@@ -101,9 +107,10 @@ public class JavascriptActionController extends SpringActionController
         Value getActionInstance(Context context, String actionName)
         {
             var bindings = context.getBindings("js");
-            if (!bindings.hasMember("actions"))
+            var exports = bindings.getMember("exports");
+            if (!exports.hasMember("actions"))
                 throw new NotFoundException("exports variable 'actions' not found");
-            Value actions = bindings.getMember("actions");
+            Value actions = exports.getMember("actions");
 
             // HANDLE both instantiated object as well as class?
             if (!actions.hasMember(actionName))
@@ -134,9 +141,10 @@ public class JavascriptActionController extends SpringActionController
         Value getViewInstance(Context context, String viewName)
         {
             var bindings = context.getBindings("js");
-            if (!bindings.hasMember("views"))
+            var exports = bindings.getMember("exports");
+            if (!exports.hasMember("views"))
                 throw new NotFoundException("exports variable 'views' not found");
-            Value views = bindings.getMember("views");
+            Value views = exports.getMember("views");
 
             // HANDLE both instantiated object as well as class?
             if (!views.hasMember(viewName))
@@ -315,7 +323,35 @@ public class JavascriptActionController extends SpringActionController
         var scope = context.getBindings("js");
         scope.putMember("ServiceManager", new org.labkey.westside.env.LABKEY(getViewContext()));
         scope.putMember("console",new Console());
+
+        // TODO stupid hack, need to implement function require(){}
+        try (InputStream react = new FileInputStream("/lk/develop/react.js");
+             InputStream reactdom = new FileInputStream("/lk/develop/react-dom-server.js")) //ClassLoader.getSystemResourceAsStream("/org/labkey/westside/react.js"))
+        {
+            context.eval("js",
+                "var global = this;\n" +
+                "var process = {env:{NODE_ENV:'development'}};\n" +
+                "var module =  {exports:{}};\n" +
+                "var exports = module.exports;\n"
+            );
+            Source source = Source.newBuilder("js", new InputStreamReader(react), "react.js").build();
+            context.eval(source);
+            context.eval("js",
+                "var React=module.exports; var ReactDOMServer=React.__SECRET_DOM_SERVER_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;\n"+
+                "function require(moduleName) { if (moduleName==='react') return React; if (moduleName==='react-dom-server') return ReactDOMServer; return null;}\n"+
+                "var module =  {exports:{}};\n" +
+                "var exports = module.exports;\n");
+        }
+        catch (IOException x)
+        {
+            throw new ConfigurationException("error loading react.js", x);
+        }
+
         _graalContext = context;
         return _graalContext;
     }
 }
+
+/* NOTES
+https://github.com/graalvm/graaljs/blob/master/docs/user/NodeJSVSJavaScriptContext.md
+ */

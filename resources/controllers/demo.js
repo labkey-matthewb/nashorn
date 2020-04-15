@@ -1,4 +1,4 @@
-//@ sourceURL=optionalModules/nashorn/resources/controllers/demo.js
+"use strict";
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
@@ -12,7 +12,15 @@ var __extends = (this && this.__extends) || (function () {
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+//@ sourceURL=optionalModules/nashorn/resources/controllers/demo.js
+var react_1 = __importDefault(require("react"));
+var react_dom_server_1 = __importDefault(require("react-dom-server"));
 var PermissionClass = {
+    NONE: "",
     READ: "org.labkey.api.security.permissions.ReadPermission",
     DELETE: "org.labkey.api.security.permissions.DeletePermission",
     UPDATE: "org.labkey.api.security.permissions.UpdatePermission",
@@ -40,7 +48,7 @@ var Errors = /** @class */ (function () {
         this.errors = [];
     };
     Errors.prototype.hasErrors = function () {
-        return this.errors && 0 != this.errors.length;
+        return this.errors && 0 !== this.errors.length;
     };
     Errors.prototype.reject = function (message) {
         var error = new ValidationError();
@@ -59,13 +67,24 @@ var Errors = /** @class */ (function () {
     };
     return Errors;
 }());
+var BaseReactView = /** @class */ (function () {
+    function BaseReactView() {
+    }
+    BaseReactView.prototype.render = function (request, response) {
+        var element = this.getMarkup();
+        response.write(react_dom_server_1.default.renderToStaticMarkup(element));
+    };
+    BaseReactView.prototype.getMarkup = function () {
+        return [];
+    };
+    return BaseReactView;
+}());
 var JsonApiAction = /** @class */ (function () {
     function JsonApiAction() {
         this.methodsAllowed = [Methods.POST];
         this.requiresPermission = [PermissionClass.READ];
     }
     JsonApiAction.prototype.JsonApiAction = function () {
-        this.user = LABKEY.getUser();
         this.errors = new Errors();
     };
     JsonApiAction.prototype.failResponse = function (message, errors) {
@@ -101,7 +120,7 @@ var JsonApiAction = /** @class */ (function () {
         this.response = response;
         // HUH???
         this.errors = new Errors();
-        this.user = LABKEY.getUser();
+        this.user = request.getAuthenticatedUser();
         var message = null;
         try {
             var json = this.bind(this.request, this.errors);
@@ -160,6 +179,9 @@ var BeginAction = /** @class */ (function (_super) {
         console.log("</BeginAction.handleGet>");
         return this.successResponse(ret);
     };
+    BeginAction.prototype.handlePost = function (json, errors) {
+        return this.handleGet(json, errors);
+    };
     return BeginAction;
 }(JsonApiAction));
 var SecondAction = /** @class */ (function (_super) {
@@ -194,7 +216,7 @@ var QueryAction = /** @class */ (function (_super) {
     };
     QueryAction.prototype.handleGet = function (json, errors) {
         console.log("<QueryAction.execute>");
-        var rs = LABKEY.getQueryService().select({
+        var rs = ServiceManager.getQueryService().select({
             "schemaName": "core",
             "sql": "SELECT userId, email FROM core.Users"
         });
@@ -209,10 +231,52 @@ var QueryAction = /** @class */ (function (_super) {
     };
     return QueryAction;
 }(JsonApiAction));
+var HtmlView = /** @class */ (function () {
+    function HtmlView() {
+        this.requiresPermission = [PermissionClass.NONE];
+    }
+    HtmlView.prototype.render = function (request, response) {
+        response.write("<div><h1>Hello World</h1></div>");
+        return null;
+    };
+    return HtmlView;
+}());
+var ReactView = /** @class */ (function (_super) {
+    __extends(ReactView, _super);
+    function ReactView() {
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this.requiresPermission = [PermissionClass.NONE];
+        return _this;
+    }
+    // render(request: lkRequest, response: lkResponse):void
+    // {
+    //     response.write(ReactDOMServer.renderToStaticMarkup(this.getMarkup()));
+    // }
+    ReactView.prototype.getMarkup = function () {
+        return react_1.default.createElement("div", null,
+            react_1.default.createElement("h1", null, "Hello React"));
+    };
+    return ReactView;
+}(BaseReactView));
+// class ReactView extends BaseReactView
+// {
+//     createElement()
+//     {
+//         return <div><h1>Hello React</h1></div>;
+//     }
+//     requiresPermission:string[] = [PermissionClass.NONE];
+// }
 // CONSIDER: "tsc --module" and "export var actions"?
 // CONSIDER: advantages? disadvantages?
-var actions = {
-    begin: BeginAction,
-    second: SecondAction,
-    query: QueryAction
-};
+exports.actions =
+    {
+        begin: BeginAction,
+        second: new SecondAction(),
+        query: QueryAction
+    };
+exports.views =
+    {
+        html: HtmlView,
+        react: ReactView
+    };
+//# sourceMappingURL=demo.js.map
