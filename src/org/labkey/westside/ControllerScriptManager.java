@@ -8,12 +8,14 @@ import org.labkey.api.module.ModuleResourceCache;
 import org.labkey.api.module.ModuleResourceCacheHandler;
 import org.labkey.api.module.ModuleResourceCaches;
 import org.labkey.api.module.ResourceRootProvider;
+import org.labkey.api.resource.FileResource;
 import org.labkey.api.resource.Resource;
 import org.labkey.api.util.FileUtil;
 import org.labkey.api.util.Path;
 import org.springframework.web.servlet.mvc.Controller;
 
 import javax.servlet.http.HttpServletRequest;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -59,6 +61,22 @@ public class ControllerScriptManager
         var map = opt.get();
         var sw = map.get(controller);
         return null==sw ? null : sw.getSource();
+    }
+
+
+    public static File getControllerScriptFile(String controller) throws IOException
+    {
+        // consider only active modules
+        var opt = CONTROLLER_CACHE.streamAllResourceMaps()
+                .filter(map -> map.containsKey(controller))
+                .findFirst();
+        if (opt.isEmpty())
+            return null;
+        var map = opt.get();
+        var sw = map.get(controller);
+        if (null == sw)
+            return null;
+        return ((FileResource)sw.resource).getFile();
     }
 
     /**

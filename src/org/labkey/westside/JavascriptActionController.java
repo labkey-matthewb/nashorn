@@ -26,17 +26,18 @@ import org.json.JSONObject;
 import org.labkey.api.action.FormApiAction;
 import org.labkey.api.action.PermissionCheckableAction;
 import org.labkey.api.action.SpringActionController;
+import org.labkey.api.module.DefaultModule;
+import org.labkey.api.module.Module;
+import org.labkey.api.module.ModuleLoader;
 import org.labkey.api.security.RequiresNoPermission;
 import org.labkey.api.security.RequiresSiteAdmin;
 import org.labkey.api.settings.AppProps;
-import org.labkey.api.util.ConfigurationException;
+import org.labkey.api.util.MemTracker;
 import org.labkey.api.view.JspView;
 import org.labkey.api.view.NavTree;
 import org.labkey.api.view.NotFoundException;
 import org.labkey.api.view.UnauthorizedException;
 import org.labkey.api.view.WebPartView;
-import org.labkey.bootstrap.ConfigException;
-import org.labkey.westside.env.Console;
 import org.labkey.westside.env.JSENV;
 import org.labkey.westside.env.Request;
 import org.labkey.westside.env.Response;
@@ -46,10 +47,7 @@ import org.springframework.web.servlet.mvc.Controller;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.File;
 
 public class JavascriptActionController extends SpringActionController
 {
@@ -58,8 +56,8 @@ public class JavascriptActionController extends SpringActionController
     final String resolvedName;
 
 
-    static final String executeFnName = "execute";
-    static final String renderFnName = "render";
+    static final String executeFnName = "handleRequest";
+    static final String renderFnName = "handleRequest";
     static final String requiresPermissionName = "requiresPermission";
 
 
@@ -104,10 +102,12 @@ public class JavascriptActionController extends SpringActionController
             setUnauthorizedType(UnauthorizedException.Type.sendUnauthorized);
         }
 
-        Value getActionInstance(Context context, String actionName)
+        Value getActionInstance(Value exports, String actionName)
         {
-            var bindings = context.getBindings("js");
-            var exports = bindings.getMember("exports");
+//            var bindings = context.getBindings("js");
+//            var exports = bindings.getMember("controller");
+            if (!exports.hasMember("actions") && exports.hasMember("default"))
+                exports = exports.getMember("default");
             if (!exports.hasMember("actions"))
                 throw new NotFoundException("exports variable 'actions' not found");
             Value actions = exports.getMember("actions");
@@ -138,10 +138,12 @@ public class JavascriptActionController extends SpringActionController
         }
 
 
-        Value getViewInstance(Context context, String viewName)
+        Value getViewInstance(Value exports, String viewName)
         {
-            var bindings = context.getBindings("js");
-            var exports = bindings.getMember("exports");
+//            var bindings = context.getBindings("js");
+//            var exports = bindings.getMember("controller");
+            if (!exports.hasMember("views") && exports.hasMember("default"))
+                exports = exports.getMember("default");
             if (!exports.hasMember("views"))
                 throw new NotFoundException("exports variable 'views' not found");
             Value views = exports.getMember("views");
@@ -190,18 +192,17 @@ public class JavascriptActionController extends SpringActionController
             if (StringUtils.equalsIgnoreCase("action",actionName) && null != request.getParameter("action"))
                 actionName = StringUtils.stripToEmpty(request.getParameter("action"));
 
-            Context context = getScriptContext();
-
+            Module module = ModuleLoader.getInstance().getModule(controllerName.substring(0,controllerName.indexOf('-')));
+            Context context = getScriptContext(module);
             Source source  = ControllerScriptManager.getControllerScriptSource((controllerName).toLowerCase());
             if (null == source)
                 throw new NotFoundException("Could not find script corresponding to " + controllerName);
-            context.eval(source);
-
+            Value exports = context.eval("js", "require('controller://" + controllerName + "');");
             boolean isapi = getViewContext().getRequest().getRequestURI().endsWith(".api");
 
             if (isapi)
             {
-                final Value actionImpl = getActionInstance(context, actionName);
+                final Value actionImpl = getActionInstance(exports, actionName);
                 final Request envRequest = new Request(getViewContext().getRequest(), getViewContext().getActionURL());
                 final Response envResponse = new Response(getViewContext().getResponse());
                 actionImpl.invokeMember(executeFnName, envRequest, envResponse);
@@ -209,7 +210,7 @@ public class JavascriptActionController extends SpringActionController
             }
             else
             {
-                final Value actionImpl = getViewInstance(context, actionName);
+                final Value actionImpl = getViewInstance(exports, actionName);
                 return new WebPartView(WebPartView.FrameType.PORTAL)
                 {
                     @Override
@@ -270,7 +271,7 @@ public class JavascriptActionController extends SpringActionController
             }
             try
             {
-                Context context = getScriptContext();
+                Context context = getScriptContext(ModuleLoader.getInstance().getModule("westside"));
                 Source source = Source.newBuilder("js", scriptForm.getScript(), "script.js").build();
                 Object result = context.eval(source);
                 if (_log.isDebugEnabled())
@@ -306,7 +307,7 @@ public class JavascriptActionController extends SpringActionController
 
     private Context _graalContext = null;
 
-    private Context getScriptContext()
+    private Context getScriptContext(Module module)
     {
         if (null != _graalContext)
             return _graalContext;
@@ -321,9 +322,40 @@ public class JavascriptActionController extends SpringActionController
         Context context = Context.newBuilder("js")
                 .allowHostAccess(access).build();
         var scope = context.getBindings("js");
-        scope.putMember("ServiceManager", new org.labkey.westside.env.LABKEY(getViewContext()));
-        scope.putMember("console",new Console());
-
+        // global native helper
+        var labkey = new org.labkey.westside.env.LABKEY(context, getViewContext(),
+                new File(((DefaultModule)module).getResourceDirectory(), "controllers"),
+                new File[] {new File(((DefaultModule)ModuleLoader.getInstance().getModule("westside")).getResourceDirectory(),"node_modules")});
+        scope.putMember("_labkey_native", labkey);
+        context.eval("js",
+            "var console = {" +
+                    "assert:function(t,s){if (t) this.log(s);}," +
+                    "debug:function(s){this.log(s);}," +
+                    "error:function(s){this.log(s);}," +
+                    "log:function(s){_labkey_native.log(typeof s === 'string' ? s : new String(s));}," +
+                    "warn:function(s){this.log(s);}};\n"+
+            "var _global_module = {\n" +
+                "_cache:{},\n" +
+                "filename: '_globals.js',\n" +
+                "exports: {},\n" +
+                "parent:null,\n"+
+                "normalize: function(path) { return _labkey_native.normalizeModulePath(this.filename,path); },\n" +
+                "load: function(path) { return _labkey_native.loadModule(path); },\n" +
+                "require: function (moduleRef) {\n" +
+                    "var path = (moduleRef=='stream') ? moduleRef : this.normalize(moduleRef);\n" +
+                    "if (_global_module._cache[path]) return _global_module._cache[path].exports;\n" +
+                    "var module = {parent:this, exports:{}, filename:path, normalize:this.normalize, load:this.load, require:this.require};\n" +
+// UNDONE: need stream.Readable and stream.Writeable!
+                    "if (path==='stream') module.exports.Readable = function(){};\n" +
+                    "else this.load(path)(module);\n" +
+                    "_global_module._cache[path] = module;\n" +
+                    "return module.exports;\n" +
+                "}};\n" +
+            "var module = _global_module; var require=function(mod){return module.require(mod);}\n" +
+            "var global = this;\n" +
+            "var process = {browser:false, env:{NODE_ENV:'" + (AppProps.getInstance().isDevMode() ? "dev" : "production") + "'}};\n"
+        );
+        /*
         // TODO stupid hack, need to implement function require(){}
         try (InputStream react = new FileInputStream("/lk/develop/react.js");
              InputStream reactdom = new FileInputStream("/lk/develop/react-dom-server.js")) //ClassLoader.getSystemResourceAsStream("/org/labkey/westside/react.js"))
@@ -346,8 +378,9 @@ public class JavascriptActionController extends SpringActionController
         {
             throw new ConfigurationException("error loading react.js", x);
         }
-
+*/
         _graalContext = context;
+        assert MemTracker.get().put(context);
         return _graalContext;
     }
 }
@@ -355,3 +388,4 @@ public class JavascriptActionController extends SpringActionController
 /* NOTES
 https://github.com/graalvm/graaljs/blob/master/docs/user/NodeJSVSJavaScriptContext.md
  */
+

@@ -16,153 +16,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-//@ sourceURL=optionalModules/nashorn/resources/controllers/demo.js
+// TODO There must be a shorter syntax for this
+var actions_1 = require("actions");
 var react_1 = __importDefault(require("react"));
-var react_dom_server_1 = __importDefault(require("react-dom-server"));
-var PermissionClass = {
-    NONE: "",
-    READ: "org.labkey.api.security.permissions.ReadPermission",
-    DELETE: "org.labkey.api.security.permissions.DeletePermission",
-    UPDATE: "org.labkey.api.security.permissions.UpdatePermission",
-    INSERT: "org.labkey.api.security.permissions.InsertPermission",
-    ADMIN: "org.labkey.api.security.permissions.AdminPermission"
-};
-var Methods = {
-    GET: "GET",
-    HEAD: "HEAD",
-    POST: "POST",
-    PUT: "PUT",
-    DELETE: "DELETE",
-    OPTIONS: "OPTIONS",
-    TRACE: "TRACE"
-};
-var ValidationError = /** @class */ (function () {
-    function ValidationError() {
-    }
-    return ValidationError;
-}());
-var Errors = /** @class */ (function () {
-    function Errors() {
-    }
-    Errors.prototype.Errors = function () {
-        this.errors = [];
-    };
-    Errors.prototype.hasErrors = function () {
-        return this.errors && 0 !== this.errors.length;
-    };
-    Errors.prototype.reject = function (message) {
-        var error = new ValidationError();
-        error.message = message;
-        if (!this.errors)
-            this.errors = [];
-        this.errors.push(error);
-    };
-    Errors.prototype.rejectValue = function (field, message) {
-        var error = new ValidationError();
-        error.message = message;
-        error.field = field;
-        if (!this.errors)
-            this.errors = [];
-        this.errors.push(error);
-    };
-    return Errors;
-}());
-var BaseReactView = /** @class */ (function () {
-    function BaseReactView() {
-    }
-    BaseReactView.prototype.render = function (request, response) {
-        var element = this.getMarkup();
-        response.write(react_dom_server_1.default.renderToStaticMarkup(element));
-    };
-    BaseReactView.prototype.getMarkup = function () {
-        return [];
-    };
-    return BaseReactView;
-}());
-var JsonApiAction = /** @class */ (function () {
-    function JsonApiAction() {
-        this.methodsAllowed = [Methods.POST];
-        this.requiresPermission = [PermissionClass.READ];
-    }
-    JsonApiAction.prototype.JsonApiAction = function () {
-        this.errors = new Errors();
-    };
-    JsonApiAction.prototype.failResponse = function (message, errors) {
-        return { success: false, message: message, errors: errors };
-    };
-    JsonApiAction.prototype.successResponse = function (value) {
-        return { success: true, value: value };
-    };
-    JsonApiAction.prototype.bind = function (request, errors) {
-        var json = {};
-        if (request.getContentType() === "text/json") {
-            json = JSON.parse(request.getBodyAsString());
-        }
-        else {
-            var params = JSON.parse(request.getParameterMapJSON());
-            for (var key in params) {
-                if (!params.hasOwnProperty(key))
-                    continue;
-                var value = params[key];
-                console.log("key=" + key + " value=" + value);
-                if (value.length === 0)
-                    json[key] = "";
-                else if (value.length === 1)
-                    json[key] = value[0];
-                else
-                    json[key] = value;
-            }
-        }
-        return json;
-    };
-    JsonApiAction.prototype.execute = function (request, response) {
-        this.request = request;
-        this.response = response;
-        // HUH???
-        this.errors = new Errors();
-        this.user = request.getAuthenticatedUser();
-        var message = null;
-        try {
-            var json = this.bind(this.request, this.errors);
-            if (!this.errors.hasErrors()) {
-                this.validate(json, this.errors);
-                if (!this.errors.hasErrors()) {
-                    var method = this.request.getMethod();
-                    var value = {};
-                    if (method === Methods.GET)
-                        value = this.handleGet(json, this.errors);
-                    else if (method === Methods.POST)
-                        value = this.handlePost(json, this.errors);
-                    if (!this.errors.hasErrors()) {
-                        response.setContentType("text/json");
-                        response.write(JSON.stringify(value));
-                        return;
-                    }
-                }
-            }
-        }
-        // catch (ex)
-        // {
-        //     message = ex;
-        // }
-        finally { }
-        response.setContentType("text/json");
-        response.write(JSON.stringify(this.failResponse(message, this.errors)));
-    };
-    JsonApiAction.prototype.validate = function (json, errors) { };
-    JsonApiAction.prototype.handleGet = function (json, errors) {
-    };
-    JsonApiAction.prototype.handlePost = function (json, errors) {
-    };
-    return JsonApiAction;
-}());
-//---------------------------------------------------
 var BeginAction = /** @class */ (function (_super) {
     __extends(BeginAction, _super);
     function BeginAction() {
         var _this = _super !== null && _super.apply(this, arguments) || this;
         _this.methodsAllowed = ['POST', 'GET'];
-        _this.requiresPermission = [PermissionClass.READ];
+        _this.requiresPermission = [actions_1.PermissionClass.READ];
         return _this;
     }
     BeginAction.prototype.handleGet = function (json, errors) {
@@ -183,13 +45,13 @@ var BeginAction = /** @class */ (function (_super) {
         return this.handleGet(json, errors);
     };
     return BeginAction;
-}(JsonApiAction));
+}(actions_1.JsonApiAction));
 var SecondAction = /** @class */ (function (_super) {
     __extends(SecondAction, _super);
     function SecondAction() {
         var _this = _super !== null && _super.apply(this, arguments) || this;
         _this.methodsAllowed = ['GET'];
-        _this.requiresPermission = [PermissionClass.READ];
+        _this.requiresPermission = [actions_1.PermissionClass.READ];
         return _this;
     }
     SecondAction.prototype.validate = function (json, errors) {
@@ -203,80 +65,96 @@ var SecondAction = /** @class */ (function (_super) {
         return this.successResponse({ name: json.name, answer: 42 });
     };
     return SecondAction;
-}(JsonApiAction));
+}(actions_1.JsonApiAction));
 var QueryAction = /** @class */ (function (_super) {
     __extends(QueryAction, _super);
     function QueryAction() {
         var _this = _super !== null && _super.apply(this, arguments) || this;
-        _this.methodsAllowed = [Methods.GET];
-        _this.requiresPermission = [PermissionClass.READ];
+        _this.methodsAllowed = [actions_1.Methods.GET, actions_1.Methods.POST];
+        _this.requiresPermission = [actions_1.PermissionClass.READ];
         return _this;
     }
     QueryAction.prototype.validate = function (json, errors) {
     };
     QueryAction.prototype.handleGet = function (json, errors) {
         console.log("<QueryAction.execute>");
-        var rs = ServiceManager.getQueryService().select({
-            "schemaName": "core",
-            "sql": "SELECT userId, email FROM core.Users"
-        });
-        var arr = [];
-        while (rs.next()) {
-            console.log(rs.getString(2));
-            arr.push({ "userid": rs.getNumber(1), "email": rs.getString(2) });
-        }
-        rs.close();
+        // let rs:Results = ServiceManager.getQueryService().select(
+        //     {
+        //         "schemaName":"core",
+        //         "sql":"SELECT userId, email FROM core.Users"
+        //     });
+        // let arr = [];
+        // while (rs.next())
+        // {
+        //     console.log(rs.getString(2));
+        //     arr.push({"userid":rs.getNumber(1), "email":rs.getString(2)});
+        // }
+        // rs.close();
         console.log("</QueryAction.execute>");
-        return { users: arr };
+        return { users: [{ userid: 'a', email: 'a@acme.test' }] };
+    };
+    QueryAction.prototype.handlePost = function (json, errors) {
+        return this.handleGet(json, errors);
     };
     return QueryAction;
-}(JsonApiAction));
-var HtmlView = /** @class */ (function () {
+}(actions_1.JsonApiAction));
+var HtmlView = /** @class */ (function (_super) {
+    __extends(HtmlView, _super);
     function HtmlView() {
-        this.requiresPermission = [PermissionClass.NONE];
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this.requiresPermission = [actions_1.PermissionClass.NONE];
+        return _this;
     }
-    HtmlView.prototype.render = function (request, response) {
-        response.write("<div><h1>Hello World</h1></div>");
+    HtmlView.prototype.render = function (params, writer) {
+        writer.write("<div><h1>Hello World</h1></div>");
         return null;
     };
     return HtmlView;
-}());
+}(actions_1.WebPartView));
 var ReactView = /** @class */ (function (_super) {
     __extends(ReactView, _super);
     function ReactView() {
         var _this = _super !== null && _super.apply(this, arguments) || this;
-        _this.requiresPermission = [PermissionClass.NONE];
+        _this.requiresPermission = [actions_1.PermissionClass.NONE];
         return _this;
     }
-    // render(request: lkRequest, response: lkResponse):void
-    // {
-    //     response.write(ReactDOMServer.renderToStaticMarkup(this.getMarkup()));
-    // }
-    ReactView.prototype.getMarkup = function () {
+    ReactView.prototype.getMarkup = function (params) {
         return react_1.default.createElement("div", null,
             react_1.default.createElement("h1", null, "Hello React"));
     };
     return ReactView;
-}(BaseReactView));
-// class ReactView extends BaseReactView
-// {
-//     createElement()
-//     {
-//         return <div><h1>Hello React</h1></div>;
-//     }
-//     requiresPermission:string[] = [PermissionClass.NONE];
-// }
-// CONSIDER: "tsc --module" and "export var actions"?
-// CONSIDER: advantages? disadvantages?
-exports.actions =
-    {
+}(actions_1.ReactWebPartView));
+function Hello(props) {
+    return react_1.default.createElement("h1", null,
+        "Hello, ",
+        props.name);
+}
+var React2View = /** @class */ (function (_super) {
+    __extends(React2View, _super);
+    function React2View() {
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this.requiresPermission = [actions_1.PermissionClass.NONE];
+        return _this;
+    }
+    React2View.prototype.getMarkup = function (json) {
+        var names = ["matt", "adam", "kevin"];
+        return (react_1.default.createElement("div", null, names.map(function (name, index) { return react_1.default.createElement(Hello, { key: index, name: name }); })));
+    };
+    return React2View;
+}(actions_1.ReactWebPartView));
+// differences between actions and views:
+// a) wrapping of views in template
+// b) default contentType
+// c) rendering of unhandled exceptions
+exports.default = {
+    actions: {
         begin: BeginAction,
         second: new SecondAction(),
         query: QueryAction
-    };
-exports.views =
-    {
+    },
+    views: {
         html: HtmlView,
-        react: ReactView
-    };
+        react: React2View
+    }
+};
 //# sourceMappingURL=demo.js.map
