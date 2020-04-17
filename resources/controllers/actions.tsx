@@ -147,9 +147,10 @@ interface Action
     handleRequest(request:lkRequest, response: lkResponse):void;
     methodsAllowed: string[];
     requiresPermission : string[];
+    contentType?:string;        // not used for view actions which must be html
 }
 
-abstract class DefaultAction implements Action
+abstract class BaseAction implements Action
 {
     abstract handleRequest(request:lkRequest, response: lkResponse):void;
     methodsAllowed: string[];
@@ -188,7 +189,7 @@ abstract class DefaultAction implements Action
 }
 
 
-abstract class WebPartView extends DefaultAction
+abstract class WebPartView extends BaseAction
 {
     handleRequest(request: lkRequest, response: lkResponse):void
     {
@@ -222,7 +223,11 @@ abstract class ReactWebPartView extends WebPartView
     methodsAllowed: string[];
     requiresPermission : string[];
 }
-abstract class JsonApiAction extends DefaultAction
+abstract class ApiAction extends BaseAction
+{
+    contentType:string = "text/json";
+}
+abstract class JsonApiAction extends ApiAction
 {
     public JsonApiAction()
     {
@@ -264,7 +269,6 @@ abstract class JsonApiAction extends DefaultAction
                         value = this.handlePost(json, this.errors);
                     if (!this.errors.hasErrors())
                     {
-                        response.setContentType("text/json");
                         response.write(JSON.stringify(value));
                         return;
                     }
@@ -276,7 +280,6 @@ abstract class JsonApiAction extends DefaultAction
         //     message = ex;
         // }
         finally {}
-        response.setContentType("text/json");
         response.write(JSON.stringify(this.failResponse(message,this.errors)));
     }
 

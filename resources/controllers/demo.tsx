@@ -1,8 +1,19 @@
 import {Errors, JsonApiAction, Methods, PermissionClass, ReactWebPartView, WebPartView} from 'actions';
 import React from "react";
+import Combobox from 'react-widgets/lib/Combobox'
 
-class BeginAction extends JsonApiAction
+class MyApiAction extends JsonApiAction
 {
+    validate(json: any, errors: Errors): void
+    {
+        if (!json.name)
+            errors.rejectValue("name", "Required");
+        if (!("i" in json))
+            errors.rejectValue("i", "Required");
+        else if (isNaN(json.i = parseInt(json.i)))
+            errors.rejectValue( "i", "Could not convert integer");
+    }
+
     public handleGet(json:any, errors:Errors) : Object
     {
         console.log("<BeginAction.handleGet>");
@@ -21,6 +32,11 @@ class BeginAction extends JsonApiAction
         console.log("</BeginAction.handleGet>");
         return this.successResponse(ret);
 	}
+
+	public handlePost(json:any, errors:Errors)
+    {
+        return this.handleGet(json,errors);
+    }
 
 	methodsAllowed:string[] = ['POST','GET'];
     requiresPermission:string[] = [PermissionClass.READ];
@@ -57,18 +73,20 @@ class QueryAction extends JsonApiAction
     public handleGet(json:any, errors:Errors) : Object
     {
         console.log("<QueryAction.execute>");
-        // let rs:Results = ServiceManager.getQueryService().select(
-        //     {
-        //         "schemaName":"core",
-        //         "sql":"SELECT userId, email FROM core.Users"
-        //     });
-        // let arr = [];
-        // while (rs.next())
-        // {
-        //     console.log(rs.getString(2));
-        //     arr.push({"userid":rs.getNumber(1), "email":rs.getString(2)});
-        // }
-        // rs.close();
+/*
+        let rs:Results = ServiceManager.getQueryService().select(
+            {
+                "schemaName":"core",
+                "sql":"SELECT userId, email FROM core.Users"
+            });
+        let arr = [];
+        while (rs.next())
+        {
+            console.log(rs.getString(2));
+            arr.push({"userid":rs.getNumber(1), "email":rs.getString(2)});
+        }
+        rs.close();
+ */
 
         console.log("</QueryAction.execute>");
         return {users:[{userid:'a',email:'a@acme.test'}]};
@@ -106,7 +124,11 @@ class ReactView extends ReactWebPartView
         const names = ["matt","adam","kevin"];
         return(
             <div>
-                {names.map((name,index) => <Hello key={index} name={name}/>)}
+                <link href="/labkey/react-widgets.css" type="text/css" rel="stylesheet" />
+                <div>
+                    {names.map((name,index) => <Hello key={index} name={name}/>)}
+                    <Combobox data={names}/>
+                </div>
             </div>
         );
     }
@@ -121,7 +143,7 @@ class ReactView extends ReactWebPartView
 export default {
     actions:
     {
-        begin:  BeginAction,            // class
+        myapi:  MyApiAction,            // class
         second: new SecondAction(),     // object
         query:  QueryAction
     },

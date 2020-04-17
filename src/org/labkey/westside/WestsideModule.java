@@ -45,18 +45,6 @@ public class WestsideModule extends CodeOnlyModule
     {
     }
 
-    @Override
-    public String getName()
-    {
-        return "Nashorn";
-    }
-
-    @Override
-    public boolean hasScripts()
-    {
-        return false;
-    }
-
     @NotNull
     @Override
     protected Collection<WebPartFactory> createWebPartFactories()
@@ -67,7 +55,7 @@ public class WestsideModule extends CodeOnlyModule
     @Override
     protected void init()
     {
-        addController("nashorn", JavascriptDelegatingController.class);
+        addController("script", JavascriptActionController.class);
     }
 
     @Override

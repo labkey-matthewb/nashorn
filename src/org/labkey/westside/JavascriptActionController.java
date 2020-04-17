@@ -17,7 +17,9 @@
 package org.labkey.westside;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.apache.log4j.Priority;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.Source;
@@ -48,6 +50,8 @@ import org.springframework.web.servlet.mvc.Controller;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
+
+import static org.apache.commons.lang3.StringUtils.isBlank;
 
 public class JavascriptActionController extends SpringActionController
 {
@@ -104,8 +108,6 @@ public class JavascriptActionController extends SpringActionController
 
         Value getActionInstance(Value exports, String actionName)
         {
-//            var bindings = context.getBindings("js");
-//            var exports = bindings.getMember("controller");
             if (!exports.hasMember("actions") && exports.hasMember("default"))
                 exports = exports.getMember("default");
             if (!exports.hasMember("actions"))
@@ -203,6 +205,10 @@ public class JavascriptActionController extends SpringActionController
             if (isapi)
             {
                 final Value actionImpl = getActionInstance(exports, actionName);
+                String contentType = "text/json";
+                if (actionImpl.hasMember("contentType") && !isBlank(actionImpl.getMember("contentType").asString()))
+                    contentType = actionImpl.getMember("contentType").asString();
+                response.setContentType(contentType);
                 final Request envRequest = new Request(getViewContext().getRequest(), getViewContext().getActionURL());
                 final Response envResponse = new Response(getViewContext().getResponse());
                 actionImpl.invokeMember(executeFnName, envRequest, envResponse);
@@ -301,7 +307,6 @@ public class JavascriptActionController extends SpringActionController
         {
             return null;
         }
-
     }
 
 
@@ -329,11 +334,12 @@ public class JavascriptActionController extends SpringActionController
         scope.putMember("_labkey_native", labkey);
         context.eval("js",
             "var console = {" +
-                    "assert:function(t,s){if (t) this.log(s);}," +
-                    "debug:function(s){this.log(s);}," +
-                    "error:function(s){this.log(s);}," +
-                    "log:function(s){_labkey_native.log(typeof s === 'string' ? s : new String(s));}," +
-                    "warn:function(s){this.log(s);}};\n"+
+                    "_log:function(l,s){_labkey_native.log(l,typeof s === 'string' ? s : new String(s));}," +
+                    "assert:function(t,s){if (t) this._log(40000,s);}," +
+                    "debug:function(s){this._log(10000,s);}," +
+                    "error:function(s){this._log(40000,s);}," +
+                    "log:function(s){this._log(20000,s);}," +
+                    "warn:function(s){this._log(30000,s);}};\n"+
             "var _global_module = {\n" +
                 "_cache:{},\n" +
                 "filename: '_globals.js',\n" +
@@ -345,7 +351,7 @@ public class JavascriptActionController extends SpringActionController
                     "var path = (moduleRef=='stream') ? moduleRef : this.normalize(moduleRef);\n" +
                     "if (_global_module._cache[path]) return _global_module._cache[path].exports;\n" +
                     "var module = {parent:this, exports:{}, filename:path, normalize:this.normalize, load:this.load, require:this.require};\n" +
-// UNDONE: need stream.Readable and stream.Writeable!
+// TODO: need stream.Readable and stream.Writeable!
                     "if (path==='stream') module.exports.Readable = function(){};\n" +
                     "else this.load(path)(module);\n" +
                     "_global_module._cache[path] = module;\n" +
@@ -355,30 +361,6 @@ public class JavascriptActionController extends SpringActionController
             "var global = this;\n" +
             "var process = {browser:false, env:{NODE_ENV:'" + (AppProps.getInstance().isDevMode() ? "dev" : "production") + "'}};\n"
         );
-        /*
-        // TODO stupid hack, need to implement function require(){}
-        try (InputStream react = new FileInputStream("/lk/develop/react.js");
-             InputStream reactdom = new FileInputStream("/lk/develop/react-dom-server.js")) //ClassLoader.getSystemResourceAsStream("/org/labkey/westside/react.js"))
-        {
-            context.eval("js",
-                "var global = this;\n" +
-                "var process = {env:{NODE_ENV:'development'}};\n" +
-                "var module =  {exports:{}};\n" +
-                "var exports = module.exports;\n"
-            );
-            Source source = Source.newBuilder("js", new InputStreamReader(react), "react.js").build();
-            context.eval(source);
-            context.eval("js",
-                "var React=module.exports; var ReactDOMServer=React.__SECRET_DOM_SERVER_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;\n"+
-                "function require(moduleName) { if (moduleName==='react') return React; if (moduleName==='react-dom-server') return ReactDOMServer; return null;}\n"+
-                "var module =  {exports:{}};\n" +
-                "var exports = module.exports;\n");
-        }
-        catch (IOException x)
-        {
-            throw new ConfigurationException("error loading react.js", x);
-        }
-*/
         _graalContext = context;
         assert MemTracker.get().put(context);
         return _graalContext;

@@ -16,18 +16,26 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-// TODO There must be a shorter syntax for this
 var actions_1 = require("actions");
 var react_1 = __importDefault(require("react"));
-var BeginAction = /** @class */ (function (_super) {
-    __extends(BeginAction, _super);
-    function BeginAction() {
+var Combobox_1 = __importDefault(require("react-widgets/lib/Combobox"));
+var MyApiAction = /** @class */ (function (_super) {
+    __extends(MyApiAction, _super);
+    function MyApiAction() {
         var _this = _super !== null && _super.apply(this, arguments) || this;
         _this.methodsAllowed = ['POST', 'GET'];
         _this.requiresPermission = [actions_1.PermissionClass.READ];
         return _this;
     }
-    BeginAction.prototype.handleGet = function (json, errors) {
+    MyApiAction.prototype.validate = function (json, errors) {
+        if (!json.name)
+            errors.rejectValue("name", "Required");
+        if (!("i" in json))
+            errors.rejectValue("i", "Required");
+        else if (isNaN(json.i = parseInt(json.i)))
+            errors.rejectValue("i", "Could not convert integer");
+    };
+    MyApiAction.prototype.handleGet = function (json, errors) {
         console.log("<BeginAction.handleGet>");
         console.log("name=" + json.name);
         var ret = {
@@ -41,10 +49,10 @@ var BeginAction = /** @class */ (function (_super) {
         console.log("</BeginAction.handleGet>");
         return this.successResponse(ret);
     };
-    BeginAction.prototype.handlePost = function (json, errors) {
+    MyApiAction.prototype.handlePost = function (json, errors) {
         return this.handleGet(json, errors);
     };
-    return BeginAction;
+    return MyApiAction;
 }(actions_1.JsonApiAction));
 var SecondAction = /** @class */ (function (_super) {
     __extends(SecondAction, _super);
@@ -78,18 +86,20 @@ var QueryAction = /** @class */ (function (_super) {
     };
     QueryAction.prototype.handleGet = function (json, errors) {
         console.log("<QueryAction.execute>");
-        // let rs:Results = ServiceManager.getQueryService().select(
-        //     {
-        //         "schemaName":"core",
-        //         "sql":"SELECT userId, email FROM core.Users"
-        //     });
-        // let arr = [];
-        // while (rs.next())
-        // {
-        //     console.log(rs.getString(2));
-        //     arr.push({"userid":rs.getNumber(1), "email":rs.getString(2)});
-        // }
-        // rs.close();
+        /*
+                let rs:Results = ServiceManager.getQueryService().select(
+                    {
+                        "schemaName":"core",
+                        "sql":"SELECT userId, email FROM core.Users"
+                    });
+                let arr = [];
+                while (rs.next())
+                {
+                    console.log(rs.getString(2));
+                    arr.push({"userid":rs.getNumber(1), "email":rs.getString(2)});
+                }
+                rs.close();
+         */
         console.log("</QueryAction.execute>");
         return { users: [{ userid: 'a', email: 'a@acme.test' }] };
     };
@@ -111,6 +121,11 @@ var HtmlView = /** @class */ (function (_super) {
     };
     return HtmlView;
 }(actions_1.WebPartView));
+function Hello(props) {
+    return react_1.default.createElement("h1", null,
+        "Hello, ",
+        props.name);
+}
 var ReactView = /** @class */ (function (_super) {
     __extends(ReactView, _super);
     function ReactView() {
@@ -118,29 +133,15 @@ var ReactView = /** @class */ (function (_super) {
         _this.requiresPermission = [actions_1.PermissionClass.NONE];
         return _this;
     }
-    ReactView.prototype.getMarkup = function (params) {
-        return react_1.default.createElement("div", null,
-            react_1.default.createElement("h1", null, "Hello React"));
+    ReactView.prototype.getMarkup = function (json) {
+        var names = ["matt", "adam", "kevin"];
+        return (react_1.default.createElement("div", null,
+            react_1.default.createElement("link", { href: "/labkey/react-widgets.css", type: "text/css", rel: "stylesheet" }),
+            react_1.default.createElement("div", null,
+                names.map(function (name, index) { return react_1.default.createElement(Hello, { key: index, name: name }); }),
+                react_1.default.createElement(Combobox_1.default, { data: names }))));
     };
     return ReactView;
-}(actions_1.ReactWebPartView));
-function Hello(props) {
-    return react_1.default.createElement("h1", null,
-        "Hello, ",
-        props.name);
-}
-var React2View = /** @class */ (function (_super) {
-    __extends(React2View, _super);
-    function React2View() {
-        var _this = _super !== null && _super.apply(this, arguments) || this;
-        _this.requiresPermission = [actions_1.PermissionClass.NONE];
-        return _this;
-    }
-    React2View.prototype.getMarkup = function (json) {
-        var names = ["matt", "adam", "kevin"];
-        return (react_1.default.createElement("div", null, names.map(function (name, index) { return react_1.default.createElement(Hello, { key: index, name: name }); })));
-    };
-    return React2View;
 }(actions_1.ReactWebPartView));
 // differences between actions and views:
 // a) wrapping of views in template
@@ -148,13 +149,13 @@ var React2View = /** @class */ (function (_super) {
 // c) rendering of unhandled exceptions
 exports.default = {
     actions: {
-        begin: BeginAction,
+        myapi: MyApiAction,
         second: new SecondAction(),
         query: QueryAction
     },
     views: {
         html: HtmlView,
-        react: React2View
+        react: ReactView
     }
 };
 //# sourceMappingURL=demo.js.map
