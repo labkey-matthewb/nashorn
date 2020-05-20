@@ -1,0 +1,5 @@
+dependencies {
+    external "org.graalvm.sdk:graal-sdk:${graalVersion}"
+    external "org.graalvm.js:js:${graalVersion}"
+    external "org.graalvm.js:js-scriptengine:${graalVersion}"
+}
